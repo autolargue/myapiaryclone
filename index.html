@@ -8,22 +8,46 @@
 body {
   margin: 0;
   background: #0b1020;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
   font-family: Arial, sans-serif;
   color: white;
 }
 
+/* --- TABS --- */
+#tabs {
+  display: flex;
+  gap: 5px;
+  padding: 10px;
+  background: #111827;
+}
+
+.tab {
+  padding: 6px 10px;
+  background: #1f2937;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tab.active {
+  background: #2563eb;
+}
+
+/* --- INFO BAR --- */
+#info {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* --- GRID --- */
 #grid {
   display: grid;
   grid-template-columns: repeat(4, 90px);
   grid-template-rows: repeat(4, 90px);
   gap: 4px;
+  justify-content: center;
 }
 
-/* TILE */
+/* --- TILE --- */
 .tile {
   width: 90px;
   height: 90px;
@@ -38,18 +62,15 @@ body {
   cursor: pointer;
 }
 
-/* FACE DOWN */
 .face-down {
   background: rgba(0,0,0,0.5);
 }
 
-/* SLOT TEXT */
 .slots {
   font-family: monospace;
   font-size: 9px;
 }
 
-/* PLANET CIRCLE */
 .planet-art {
   width: 26px;
   height: 26px;
@@ -58,49 +79,77 @@ body {
   background: radial-gradient(circle at 30% 30%, #7dd3fc, #1e3a8a);
 }
 
-/* NAME */
 .name {
   font-size: 9px;
   font-weight: bold;
 }
 
-/* BONUS */
 .bonus {
   font-size: 8px;
   opacity: 0.85;
 }
 
-/* QUEEN SHIP */
 .blocked {
   background: rgba(255, 0, 0, 0.2);
   cursor: not-allowed;
+}
+
+/* --- OTHER AREAS --- */
+#areaContent {
+  padding: 20px;
+  text-align: center;
+  font-size: 14px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="grid"></div>
+<!-- TABS -->
+<div id="tabs"></div>
+
+<!-- INFO -->
+<div id="info"></div>
+
+<!-- CONTENT -->
+<div id="content"></div>
 
 <script>
 /* =========================
    GAME STATE
 ========================= */
 
-const SIZE = 4;
 const QUEEN_INDEX = 15;
+
+const AREAS = [
+  "Explore",
+  "Grow",
+  "Convert",
+  "Research",
+  "Carve",
+  "Hibernation"
+];
 
 const gameState = {
   currentPlayer: 1,
+  activeArea: "Explore",
+
+  // support up to 5 players
+  players: {
+    1: { pollen: 0, fiber: 0, water: 0, score: 0 },
+    2: { pollen: 0, fiber: 0, water: 0, score: 0 },
+    3: { pollen: 0, fiber: 0, water: 0, score: 0 },
+    4: { pollen: 0, fiber: 0, water: 0, score: 0 },
+    5: { pollen: 0, fiber: 0, water: 0, score: 0 }
+  },
+
+  playerCount: 2, // change this to 3–5 later
+
   grid: Array(16).fill(null).map((_, i) => ({
     planet: null,
     revealed: false,
     hasExploreToken: i !== QUEEN_INDEX
-  })),
-  players: {
-    1: { pollen: 0, fiber: 0, water: 0, score: 0 },
-    2: { pollen: 0, fiber: 0, water: 0, score: 0 }
-  }
+  }))
 };
 
 /* =========================
@@ -115,29 +164,24 @@ function basic(type) {
   return { resource: type, filled: true, predefined: true };
 }
 
-function fourStrengthPlaceholder(player) {
-  // do nothing for now
-}
+function fourStrengthPlaceholder() {}
 
-/* 15 planets */
 const PLANETS = [
-  { name: "Aurelion", slots: [empty()], hasFourStrengthBonus: false, onFourStrength: null },
-  { name: "Brontes", slots: [empty()], hasFourStrengthBonus: false, onFourStrength: null },
-  { name: "Cyris", slots: [empty()], hasFourStrengthBonus: false, onFourStrength: null },
-
-  { name: "Demeris", slots: [basic("pollen"), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
-  { name: "Eryndor", slots: [basic("water"), empty()], hasFourStrengthBonus: false, onFourStrength: null },
-  { name: "Farlune", slots: [basic("fiber"), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
-  { name: "Glyra", slots: [empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
-
-  { name: "Helion", slots: [basic("pollen"), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
-  { name: "Icaris", slots: [basic("water"), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
-  { name: "Jorath", slots: [basic("fiber"), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
-  { name: "Kryos", slots: [empty(), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
-  { name: "Lythera", slots: [empty(), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
-  { name: "Mykos", slots: [basic("pollen"), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
-  { name: "Nerath", slots: [basic("water"), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
-  { name: "Orivon", slots: [basic("fiber"), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null }
+  { name: "Aurelion", slots: [empty()], hasFourStrengthBonus: false },
+  { name: "Brontes", slots: [empty()], hasFourStrengthBonus: false },
+  { name: "Cyris", slots: [empty()], hasFourStrengthBonus: false },
+  { name: "Demeris", slots: [basic("pollen"), empty()], hasFourStrengthBonus: true },
+  { name: "Eryndor", slots: [basic("water"), empty()], hasFourStrengthBonus: false },
+  { name: "Farlune", slots: [basic("fiber"), empty()], hasFourStrengthBonus: true },
+  { name: "Glyra", slots: [empty(), empty()], hasFourStrengthBonus: false },
+  { name: "Helion", slots: [basic("pollen"), empty(), empty()], hasFourStrengthBonus: true },
+  { name: "Icaris", slots: [basic("water"), empty(), empty()], hasFourStrengthBonus: false },
+  { name: "Jorath", slots: [basic("fiber"), empty(), empty()], hasFourStrengthBonus: true },
+  { name: "Kryos", slots: [empty(), empty(), empty()], hasFourStrengthBonus: false },
+  { name: "Lythera", slots: [empty(), empty(), empty()], hasFourStrengthBonus: true },
+  { name: "Mykos", slots: [basic("pollen"), empty(), empty()], hasFourStrengthBonus: false },
+  { name: "Nerath", slots: [basic("water"), empty(), empty()], hasFourStrengthBonus: true },
+  { name: "Orivon", slots: [basic("fiber"), empty(), empty()], hasFourStrengthBonus: false }
 ];
 
 /* =========================
@@ -145,35 +189,32 @@ const PLANETS = [
 ========================= */
 
 function formatResource(r) {
-  if (r === "pollen") return "P";
-  if (r === "fiber") return "F";
-  if (r === "water") return "W";
-  return "?";
+  return r === "pollen" ? "P" :
+         r === "fiber" ? "F" :
+         r === "water" ? "W" : "?";
 }
 
 function renderSlots(planet) {
-  return planet.slots
-    .map(s => s.filled ? `[${formatResource(s.resource)}]` : "[ ]")
-    .join("  ");
+  return planet.slots.map(s =>
+    s.filled ? `[${formatResource(s.resource)}]` : "[ ]"
+  ).join("  ");
 }
 
 /* =========================
-   GAME LOGIC
+   GAME LOGIC (Explore only)
 ========================= */
 
 function drawPlanet() {
-  const base = PLANETS[Math.floor(Math.random() * PLANETS.length)];
-  return structuredClone(base);
+  return structuredClone(PLANETS[Math.floor(Math.random() * PLANETS.length)]);
 }
 
-function gainResource(player, type, amount = 1) {
-  gameState.players[player][type] += amount;
+function gainResource(player, type) {
+  gameState.players[player][type]++;
 }
 
 function applyExploreTokenReward(player) {
-  const types = ["pollen", "fiber", "water"];
-  const t = types[Math.floor(Math.random() * types.length)];
-  gainResource(player, t);
+  const types = ["pollen","fiber","water"];
+  gainResource(player, types[Math.floor(Math.random()*3)]);
 }
 
 function onFirstDiscovery(player, planet) {
@@ -184,7 +225,7 @@ function onFirstDiscovery(player, planet) {
 
   const emptySlot = planet.slots.find(s => !s.filled);
   if (emptySlot) {
-    const t = ["pollen", "fiber", "water"][Math.floor(Math.random() * 3)];
+    const t = ["pollen","fiber","water"][Math.floor(Math.random()*3)];
     emptySlot.resource = t;
     emptySlot.filled = true;
     gainResource(player, t);
@@ -198,7 +239,10 @@ function onVisitPlanet(player, planet) {
 }
 
 function endTurn() {
-  gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+  gameState.currentPlayer++;
+  if (gameState.currentPlayer > gameState.playerCount) {
+    gameState.currentPlayer = 1;
+  }
 }
 
 /* =========================
@@ -228,21 +272,43 @@ function onExplore(i) {
 }
 
 /* =========================
-   RENDER
+   UI RENDERING
 ========================= */
 
-function render() {
-  const grid = document.getElementById("grid");
-  grid.innerHTML = "";
+function renderTabs() {
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+
+  AREAS.forEach(area => {
+    const div = document.createElement("div");
+    div.className = "tab" + (gameState.activeArea === area ? " active" : "");
+    div.innerText = area;
+
+    div.onclick = () => {
+      gameState.activeArea = area;
+      render();
+    };
+
+    tabs.appendChild(div);
+  });
+}
+
+function renderInfo() {
+  document.getElementById("info").innerText =
+    "Player " + gameState.currentPlayer + "'s turn";
+}
+
+function renderExplore() {
+  const grid = document.createElement("div");
+  grid.id = "grid";
 
   for (let i = 0; i < 16; i++) {
     const cell = gameState.grid[i];
-
     const div = document.createElement("div");
 
     if (i === QUEEN_INDEX) {
       div.className = "tile blocked";
-      div.innerHTML = "🚀";
+      div.innerText = "🚀";
       grid.appendChild(div);
       continue;
     }
@@ -267,9 +333,30 @@ function render() {
 
     grid.appendChild(div);
   }
+
+  return grid;
 }
 
-/* INIT */
+function renderAreaContent() {
+  const container = document.getElementById("content");
+  container.innerHTML = "";
+
+  if (gameState.activeArea === "Explore") {
+    container.appendChild(renderExplore());
+  } else {
+    const div = document.createElement("div");
+    div.id = "areaContent";
+    div.innerText = gameState.activeArea + " (not implemented yet)";
+    container.appendChild(div);
+  }
+}
+
+function render() {
+  renderTabs();
+  renderInfo();
+  renderAreaContent();
+}
+
 render();
 </script>
 
