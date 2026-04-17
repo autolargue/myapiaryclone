@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Explore Game Prototype</title>
+
+<style>
+body {
+  margin: 0;
+  background: #0b1020;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+  color: white;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(4, 90px);
+  grid-template-rows: repeat(4, 90px);
+  gap: 4px;
+}
+
+/* TILE */
+.tile {
+  width: 90px;
+  height: 90px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+  padding: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+/* FACE DOWN */
+.face-down {
+  background: rgba(0,0,0,0.5);
+}
+
+/* SLOT TEXT */
+.slots {
+  font-family: monospace;
+  font-size: 9px;
+}
+
+/* PLANET CIRCLE */
+.planet-art {
+  width: 26px;
+  height: 26px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #7dd3fc, #1e3a8a);
+}
+
+/* NAME */
+.name {
+  font-size: 9px;
+  font-weight: bold;
+}
+
+/* BONUS */
+.bonus {
+  font-size: 8px;
+  opacity: 0.85;
+}
+
+/* QUEEN SHIP */
+.blocked {
+  background: rgba(255, 0, 0, 0.2);
+  cursor: not-allowed;
+}
+</style>
+</head>
+
+<body>
+
+<div id="grid"></div>
+
+<script>
+/* =========================
+   GAME STATE
+========================= */
+
+const SIZE = 4;
+const QUEEN_INDEX = 15;
+
+const gameState = {
+  currentPlayer: 1,
+  grid: Array(16).fill(null).map((_, i) => ({
+    planet: null,
+    revealed: false,
+    hasExploreToken: i !== QUEEN_INDEX
+  })),
+  players: {
+    1: { pollen: 0, fiber: 0, water: 0, score: 0 },
+    2: { pollen: 0, fiber: 0, water: 0, score: 0 }
+  }
+};
+
+/* =========================
+   PLANETS
+========================= */
+
+function empty() {
+  return { resource: null, filled: false, predefined: false };
+}
+
+function basic(type) {
+  return { resource: type, filled: true, predefined: true };
+}
+
+function fourStrengthPlaceholder(player) {
+  // do nothing for now
+}
+
+/* 15 planets */
+const PLANETS = [
+  { name: "Aurelion", slots: [empty()], hasFourStrengthBonus: false, onFourStrength: null },
+  { name: "Brontes", slots: [empty()], hasFourStrengthBonus: false, onFourStrength: null },
+  { name: "Cyris", slots: [empty()], hasFourStrengthBonus: false, onFourStrength: null },
+
+  { name: "Demeris", slots: [basic("pollen"), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
+  { name: "Eryndor", slots: [basic("water"), empty()], hasFourStrengthBonus: false, onFourStrength: null },
+  { name: "Farlune", slots: [basic("fiber"), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
+  { name: "Glyra", slots: [empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
+
+  { name: "Helion", slots: [basic("pollen"), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
+  { name: "Icaris", slots: [basic("water"), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
+  { name: "Jorath", slots: [basic("fiber"), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
+  { name: "Kryos", slots: [empty(), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
+  { name: "Lythera", slots: [empty(), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
+  { name: "Mykos", slots: [basic("pollen"), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null },
+  { name: "Nerath", slots: [basic("water"), empty(), empty()], hasFourStrengthBonus: true, onFourStrength: fourStrengthPlaceholder },
+  { name: "Orivon", slots: [basic("fiber"), empty(), empty()], hasFourStrengthBonus: false, onFourStrength: null }
+];
+
+/* =========================
+   HELPERS
+========================= */
+
+function formatResource(r) {
+  if (r === "pollen") return "P";
+  if (r === "fiber") return "F";
+  if (r === "water") return "W";
+  return "?";
+}
+
+function renderSlots(planet) {
+  return planet.slots
+    .map(s => s.filled ? `[${formatResource(s.resource)}]` : "[ ]")
+    .join("  ");
+}
+
+/* =========================
+   GAME LOGIC
+========================= */
+
+function drawPlanet() {
+  const base = PLANETS[Math.floor(Math.random() * PLANETS.length)];
+  return structuredClone(base);
+}
+
+function gainResource(player, type, amount = 1) {
+  gameState.players[player][type] += amount;
+}
+
+function applyExploreTokenReward(player) {
+  const types = ["pollen", "fiber", "water"];
+  const t = types[Math.floor(Math.random() * types.length)];
+  gainResource(player, t);
+}
+
+function onFirstDiscovery(player, planet) {
+  const slot = planet.slots[0];
+  if (slot.filled && slot.predefined) {
+    gainResource(player, slot.resource);
+  }
+
+  const emptySlot = planet.slots.find(s => !s.filled);
+  if (emptySlot) {
+    const t = ["pollen", "fiber", "water"][Math.floor(Math.random() * 3)];
+    emptySlot.resource = t;
+    emptySlot.filled = true;
+    gainResource(player, t);
+  }
+}
+
+function onVisitPlanet(player, planet) {
+  planet.slots.forEach(s => {
+    if (s.filled) gainResource(player, s.resource);
+  });
+}
+
+function endTurn() {
+  gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+}
+
+/* =========================
+   EXPLORE ACTION
+========================= */
+
+function onExplore(i) {
+  if (i === QUEEN_INDEX) return;
+
+  const cell = gameState.grid[i];
+  const player = gameState.currentPlayer;
+
+  if (!cell.planet) {
+    cell.planet = drawPlanet();
+    applyExploreTokenReward(player);
+    onFirstDiscovery(player, cell.planet);
+  }
+
+  if (!cell.revealed) {
+    cell.revealed = true;
+  } else {
+    onVisitPlanet(player, cell.planet);
+  }
+
+  endTurn();
+  render();
+}
+
+/* =========================
+   RENDER
+========================= */
+
+function render() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  for (let i = 0; i < 16; i++) {
+    const cell = gameState.grid[i];
+
+    const div = document.createElement("div");
+
+    if (i === QUEEN_INDEX) {
+      div.className = "tile blocked";
+      div.innerHTML = "🚀";
+      grid.appendChild(div);
+      continue;
+    }
+
+    div.className = "tile";
+    div.onclick = () => onExplore(i);
+
+    if (!cell.planet) {
+      div.innerHTML = "⭐";
+    } else if (!cell.revealed) {
+      div.classList.add("face-down");
+      div.innerHTML = "⭐";
+    } else {
+      const p = cell.planet;
+      div.innerHTML = `
+        <div class="slots">${renderSlots(p)}</div>
+        <div class="planet-art"></div>
+        <div class="name">${p.name}</div>
+        <div class="bonus">${p.hasFourStrengthBonus ? "⚡ 4-strength" : ""}</div>
+      `;
+    }
+
+    grid.appendChild(div);
+  }
+}
+
+/* INIT */
+render();
+</script>
+
+</body>
+</html>
