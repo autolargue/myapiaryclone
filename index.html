@@ -7,14 +7,12 @@
 <style>
 body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 
-/* TABS */
 #tabs { display:flex; gap:5px; padding:10px; background:#111827; }
 .tab { padding:6px 10px; background:#1f2937; cursor:pointer; border-radius:4px; font-size:12px; }
 .tab.active { background:#2563eb; }
 
 #info { text-align:center; padding:8px; }
 
-/* workers */
 .worker-row {
   display:flex;
   justify-content:center;
@@ -32,7 +30,6 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   justify-content:center;
 }
 
-/* grid */
 #grid {
   display:grid;
   grid-template-columns:repeat(4,90px);
@@ -47,10 +44,10 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   flex-direction:column;
   justify-content:space-between;
   align-items:center;
-  cursor:pointer;
   background:rgba(255,255,255,0.05);
   padding:3px;
   box-sizing:border-box;
+  position:relative;
 }
 
 .valid { background:rgba(0,255,0,0.25); }
@@ -68,6 +65,14 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 .name { font-size:9px; }
 .sep { width:80%; height:1px; background:white; opacity:0.3; }
 .bonus { font-size:8px; }
+
+/* ship overlay */
+.ship {
+  position:absolute;
+  top:2px;
+  right:4px;
+  font-size:16px;
+}
 
 .divider {
   width:370px;
@@ -91,24 +96,12 @@ const AREAS=["Explore","Grow","Convert","Research","Carve","Hibernation"];
 /* ===== PLANETS ===== */
 function empty(){return {resource:null,filled:false,predefined:false};}
 function basic(r){return {resource:r,filled:true,predefined:true};}
-function fourStrength(){}
 
 const PLANETS=[
  {name:"Aurelion",slots:[empty()],hasFourStrength:false},
- {name:"Brontes",slots:[empty()],hasFourStrength:false},
- {name:"Cyris",slots:[empty()],hasFourStrength:false},
  {name:"Demeris",slots:[basic("pollen"),empty()],hasFourStrength:true},
- {name:"Eryndor",slots:[basic("water"),empty()],hasFourStrength:false},
- {name:"Farlune",slots:[basic("fiber"),empty()],hasFourStrength:true},
- {name:"Glyra",slots:[empty(),empty()],hasFourStrength:false},
  {name:"Helion",slots:[basic("pollen"),empty(),empty()],hasFourStrength:true},
- {name:"Icaris",slots:[basic("water"),empty(),empty()],hasFourStrength:false},
- {name:"Jorath",slots:[basic("fiber"),empty(),empty()],hasFourStrength:true},
- {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false},
- {name:"Lythera",slots:[empty(),empty(),empty()],hasFourStrength:true},
- {name:"Mykos",slots:[basic("pollen"),empty(),empty()],hasFourStrength:false},
- {name:"Nerath",slots:[basic("water"),empty(),empty()],hasFourStrength:true},
- {name:"Orivon",slots:[basic("fiber"),empty(),empty()],hasFourStrength:false}
+ {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false}
 ];
 
 function drawPlanet(){
@@ -118,6 +111,7 @@ function drawPlanet(){
 function fmt(r){
   return r==="pollen"?"P":r==="fiber"?"F":r==="water"?"W":"?";
 }
+
 function renderSlots(p){
   return p.slots.map(s=>s.filled?`[${fmt(s.resource)}]`:"[ ]").join("  ");
 }
@@ -152,6 +146,7 @@ function addWorker(s){
   if(gameState.workerPlacedThisTurn) return;
 
   const [l,r]=gameState.exploreWorkers;
+
   if(l===null) gameState.exploreWorkers=[s,null];
   else if(r===null) gameState.exploreWorkers=[s,l];
   else gameState.exploreWorkers=[s,l];
@@ -178,8 +173,7 @@ function validMoves(){
   return [last+1,last-1,last+4,last-4]
     .filter(i=>i>=0 && i<16)
     .filter(i=>isAdjacent(last,i))
-    .filter(i=>!path.includes(i))
-    .filter(i=>!gameState.grid[i].visited);
+    .filter(i=>!path.includes(i));
 }
 
 function startMovement(){
@@ -226,7 +220,6 @@ function endMovement(){
 
   animate(path,()=>{
     const final=path[path.length-1];
-
     resolveExplore(final);
 
     gameState.movement.path=[];
@@ -294,7 +287,7 @@ function renderExplore(){
 
   root.appendChild(row);
 
-  /* buttons */
+  /* worker buttons */
   const btns=document.createElement("div");
   btns.className="worker-row";
 
@@ -308,26 +301,25 @@ function renderExplore(){
 
   root.appendChild(btns);
 
-  /* controls */
+  /* movement controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  const start=document.createElement("button");
-  start.innerText="Start movement";
-  start.disabled=gameState.movement.active;
-  start.onclick=startMovement;
+  if(!gameState.movement.active){
+    const start=document.createElement("button");
+    start.innerText="Start movement";
+    start.onclick=startMovement;
+    ctrl.appendChild(start);
+  } else {
+    const end=document.createElement("button");
+    end.innerText="End movement";
+    end.onclick=endMovement;
 
-  const end=document.createElement("button");
-  end.innerText="End movement";
-  end.onclick=endMovement;
-
-  ctrl.appendChild(start);
-  ctrl.appendChild(end);
-
-  if(gameState.movement.active){
     const reset=document.createElement("button");
     reset.innerText="Reset";
     reset.onclick=resetMovement;
+
+    ctrl.appendChild(end);
     ctrl.appendChild(reset);
   }
 
@@ -361,20 +353,25 @@ function renderExplore(){
     if(gameState.movement.path.includes(i)) d.classList.add("path");
     if(valid.includes(i)) d.classList.add("valid");
 
-    if(i===gameState.queenPosition){
-      d.innerText="🚀";
-    } else if(cell.planet && cell.revealed){
+    /* planet content FIRST */
+    if(cell.planet && cell.revealed){
       d.innerHTML=`
         <div class="slots">${renderSlots(cell.planet)}</div>
         <div class="planet-art"></div>
         <div class="name">${cell.planet.name}</div>
         <div class="sep"></div>
-        <div class="bonus">${cell.hasFourStrength?"⚡":""}</div>
+        <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
       `;
     } else if(!cell.visited){
       d.innerText="⭐";
-    } else {
-      d.innerText="";
+    }
+
+    /* ship overlay */
+    if(i===gameState.queenPosition){
+      const ship=document.createElement("div");
+      ship.className="ship";
+      ship.innerText="🚀";
+      d.appendChild(ship);
     }
 
     grid.appendChild(d);
