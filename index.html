@@ -5,98 +5,41 @@
 <title>Explore Game Prototype</title>
 
 <style>
-body {
-  margin: 0;
-  background: #0b1020;
-  font-family: Arial, sans-serif;
-  color: white;
-}
+body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 
-/* TABS */
-#tabs {
-  display: flex;
-  gap: 5px;
-  padding: 10px;
-  background: #111827;
-}
-.tab {
-  padding: 6px 10px;
-  background: #1f2937;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 12px;
-}
-.tab.active { background: #2563eb; }
+#tabs { display:flex; gap:5px; padding:10px; background:#111827; }
+.tab { padding:6px 10px; background:#1f2937; cursor:pointer; border-radius:4px; font-size:12px; }
+.tab.active { background:#2563eb; }
 
-/* INFO */
-#info {
-  padding: 6px 10px;
-  font-size: 12px;
-}
+#info { padding:6px 10px; font-size:12px; }
 
-/* GRID */
 #grid {
-  display: grid;
-  grid-template-columns: repeat(4, 90px);
-  gap: 4px;
-  justify-content: center;
+  display:grid;
+  grid-template-columns:repeat(4,90px);
+  gap:4px;
+  justify-content:center;
 }
 
-/* TILE */
 .tile {
-  width: 90px;
-  height: 90px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  text-align: center;
-  padding: 3px;
-  box-sizing: border-box;
-  cursor: pointer;
+  width:90px; height:90px;
+  border:1px solid rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.05);
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  cursor:pointer;
 }
 
-.face-down { background: rgba(0,0,0,0.5); }
+.blocked { background:rgba(255,0,0,0.3); }
 
-.slots { font-family: monospace; font-size: 9px; }
-
-.planet-art {
-  width: 26px;
-  height: 26px;
-  margin: 0 auto;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #7dd3fc, #1e3a8a);
-}
-
-.name { font-size: 9px; font-weight: bold; }
-.bonus { font-size: 8px; opacity: 0.85; }
-
-.blocked {
-  background: rgba(255,0,0,0.3);
-  cursor: not-allowed;
-}
-
-/* WORKERS */
-.worker-row {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-
+.worker-row { display:flex; justify-content:center; gap:5px; margin:8px; }
 .worker-slot {
-  width: 80px;
-  height: 40px;
-  border: 1px solid white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width:80px; height:40px;
+  border:1px solid white;
+  display:flex; align-items:center; justify-content:center;
 }
 
-/* MOVEMENT COLORS */
-.valid { background: rgba(0,255,0,0.25) !important; }
-.path { background: rgba(255,255,0,0.3) !important; }
+.valid { background:rgba(0,255,0,0.25)!important; }
+.path { background:rgba(255,255,0,0.3)!important; }
 </style>
 </head>
 
@@ -107,31 +50,23 @@ body {
 <div id="content"></div>
 
 <script>
-const QUEEN_INDEX = 15;
-const AREAS = ["Explore","Grow","Convert","Research","Carve","Hibernation"];
+const QUEEN_INDEX=15;
 
-const gameState = {
-  currentPlayer: 1,
-  playerCount: 2,
-  activeArea: "Explore",
+const gameState={
+  currentPlayer:1,
+  playerCount:2,
+  activeArea:"Explore",
 
-  players: {
-    1:{pollen:0,fiber:0,water:0},
-    2:{pollen:0,fiber:0,water:0},
-    3:{pollen:0,fiber:0,water:0},
-    4:{pollen:0,fiber:0,water:0},
-    5:{pollen:0,fiber:0,water:0}
-  },
-
-  grid: Array(16).fill(null).map((_,i)=>({
+  grid:Array(16).fill(null).map((_,i)=>({
     planet:null,
     revealed:false,
-    hasExploreToken: i!==QUEEN_INDEX
+    hasExploreToken:i!==QUEEN_INDEX
   })),
 
-  queenPosition: 15,
+  queenPosition:15,
 
-  exploreWorkers:[null,null], // [left (newest), right (older)]
+  exploreWorkers:[null,null],
+  workerPlacedThisTurn:false,
 
   movement:{
     active:false,
@@ -141,7 +76,6 @@ const gameState = {
 };
 
 /* ===== HELPERS ===== */
-
 function getCoords(i){return {x:i%4,y:Math.floor(i/4)};}
 function getIndex(x,y){return y*4+x;}
 function isAdjacent(a,b){
@@ -149,13 +83,45 @@ function isAdjacent(a,b){
   return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
 }
 
+/* ===== WORKERS ===== */
+function addWorker(strength){
+  if(gameState.workerPlacedThisTurn) return;
+
+  const [left,right]=gameState.exploreWorkers;
+
+  if(left===null){
+    gameState.exploreWorkers=[strength,null];
+  } else if(right===null){
+    gameState.exploreWorkers=[strength,left];
+  } else {
+    bumpWorker(right);
+    gameState.exploreWorkers=[strength,left];
+  }
+
+  gameState.workerPlacedThisTurn=true;
+  render();
+}
+
+function bumpWorker(w){
+  console.log("Bump:",w);
+}
+
+function getTotalStrength(){
+  return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
+}
+
+/* ===== MOVEMENT ===== */
+function getRemainingMoves(){
+  return gameState.movement.maxSteps-(gameState.movement.path.length-1);
+}
+
 function getValidMoves(){
   if(!gameState.movement.active) return [];
+  if(getRemainingMoves()<=0) return [];
 
   const path=gameState.movement.path;
   const last=path[path.length-1];
   const moves=[];
-
   const {x,y}=getCoords(last);
 
   const candidates=[
@@ -164,42 +130,17 @@ function getValidMoves(){
 
   candidates.forEach(c=>{
     if(c.x>=0 && c.x<4 && c.y>=0 && c.y<4){
-      moves.push(getIndex(c.x,c.y));
+      const idx=getIndex(c.x,c.y);
+
+      // prevent backtracking
+      if(path.includes(idx)) return;
+
+      moves.push(idx);
     }
   });
 
   return moves;
 }
-
-/* ===== WORKERS (QUEUE SYSTEM) ===== */
-
-function addWorker(strength){
-  const [left,right]=gameState.exploreWorkers;
-
-  if(left===null){
-    gameState.exploreWorkers=[strength,null];
-  }
-  else if(right===null){
-    gameState.exploreWorkers=[strength,left];
-  }
-  else {
-    bumpWorker(right); // oldest pushed off
-    gameState.exploreWorkers=[strength,left];
-  }
-
-  render();
-}
-
-function bumpWorker(worker){
-  console.log("Bump worker:",worker);
-  // TODO: implement bump effect later
-}
-
-function getTotalStrength(){
-  return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
-}
-
-/* ===== MOVEMENT ===== */
 
 function startMovement(){
   const total=getTotalStrength();
@@ -214,13 +155,10 @@ function startMovement(){
 function handleCellClick(i){
   if(!gameState.movement.active) return;
 
-  const path=gameState.movement.path;
-  const last=path[path.length-1];
+  const valid=getValidMoves();
+  if(!valid.includes(i)) return;
 
-  if(!isAdjacent(last,i)) return;
-  if(path.length-1>=gameState.movement.maxSteps) return;
-
-  path.push(i);
+  gameState.movement.path.push(i);
   render();
 }
 
@@ -229,7 +167,7 @@ function resetMovement(){
   render();
 }
 
-function confirmMovement(){
+function endMovement(){
   const path=gameState.movement.path;
   const final=path[path.length-1];
 
@@ -237,27 +175,19 @@ function confirmMovement(){
   gameState.movement.active=false;
 
   resolveExplore(final);
-
   render();
 }
 
 /* ===== EXPLORE ===== */
-
 function drawPlanet(){
-  return {
-    name:"Planet "+Math.floor(Math.random()*100),
-    slots:[{filled:false},{filled:false},{filled:false}],
-    hasFourStrengthBonus:Math.random()>0.5
-  };
+  return {name:"Planet", revealed:true};
 }
 
 function resolveExplore(i){
   const cell=gameState.grid[i];
-
   if(!cell.planet){
     cell.planet=drawPlanet();
   }
-
   cell.revealed=true;
 
   endTurn();
@@ -268,51 +198,33 @@ function endTurn(){
   if(gameState.currentPlayer>gameState.playerCount)gameState.currentPlayer=1;
 
   gameState.exploreWorkers=[null,null];
+  gameState.workerPlacedThisTurn=false;
 }
 
 /* ===== RENDER ===== */
 
-function renderTabs(){
-  const el=document.getElementById("tabs");
-  el.innerHTML="";
-  AREAS.forEach(a=>{
-    const t=document.createElement("div");
-    t.className="tab"+(a===gameState.activeArea?" active":"");
-    t.innerText=a;
-    t.onclick=()=>{gameState.activeArea=a;render();};
-    el.appendChild(t);
-  });
-}
-
-function renderInfo(){
-  document.getElementById("info").innerText=
-    "Player "+gameState.currentPlayer+
-    " | Strength: "+getTotalStrength();
-}
-
 function renderExplore(){
   const c=document.createElement("div");
 
-  /* worker slots */
+  /* workers */
   const row=document.createElement("div");
   row.className="worker-row";
-
   gameState.exploreWorkers.forEach(w=>{
     const box=document.createElement("div");
     box.className="worker-slot";
     box.innerText=w?("🐝 "+w):"Empty";
     row.appendChild(box);
   });
-
   c.appendChild(row);
 
-  /* worker buttons */
+  /* add buttons */
   const sel=document.createElement("div");
   sel.className="worker-row";
 
   [1,2,3,4].forEach(s=>{
     const b=document.createElement("button");
     b.innerText="Add W"+s;
+    b.disabled=gameState.workerPlacedThisTurn;
     b.onclick=()=>addWorker(s);
     sel.appendChild(b);
   });
@@ -322,21 +234,39 @@ function renderExplore(){
   /* text */
   const txt=document.createElement("div");
   txt.style.textAlign="center";
-  txt.innerText="Total strength = number of movements of Queen Ship: "+getTotalStrength();
+  txt.innerText=
+    "Total strength = number of movements of Queen Ship: "+
+    getTotalStrength();
   c.appendChild(txt);
+
+  /* movement info */
+  if(gameState.movement.active){
+    const info=document.createElement("div");
+    info.style.textAlign="center";
+    info.innerText="Moves remaining: "+getRemainingMoves();
+    c.appendChild(info);
+  }
 
   /* controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  ["Start","Confirm","Reset"].forEach(label=>{
-    const b=document.createElement("button");
-    b.innerText=label;
-    b.onclick=label==="Start"?startMovement:
-              label==="Confirm"?confirmMovement:
-              resetMovement;
-    ctrl.appendChild(b);
-  });
+  const startBtn=document.createElement("button");
+  startBtn.innerText="Start";
+  startBtn.disabled=gameState.movement.active;
+  startBtn.onclick=startMovement;
+
+  const endBtn=document.createElement("button");
+  endBtn.innerText="End Movement";
+  endBtn.onclick=endMovement;
+
+  const resetBtn=document.createElement("button");
+  resetBtn.innerText="Reset";
+  resetBtn.onclick=resetMovement;
+
+  ctrl.appendChild(startBtn);
+  ctrl.appendChild(endBtn);
+  ctrl.appendChild(resetBtn);
 
   c.appendChild(ctrl);
 
@@ -344,7 +274,7 @@ function renderExplore(){
   const grid=document.createElement("div");
   grid.id="grid";
 
-  const validMoves=getValidMoves();
+  const valid=getValidMoves();
 
   for(let i=0;i<16;i++){
     const d=document.createElement("div");
@@ -363,7 +293,7 @@ function renderExplore(){
       d.classList.add("path");
     }
 
-    if(validMoves.includes(i)){
+    if(valid.includes(i)){
       d.classList.add("valid");
     }
 
@@ -374,12 +304,9 @@ function renderExplore(){
     const cell=gameState.grid[i];
 
     if(!cell.planet){
-      d.innerHTML="⭐";
-    } else if(!cell.revealed){
-      d.classList.add("face-down");
-      d.innerHTML="⭐";
+      d.innerText="⭐";
     } else {
-      d.innerHTML="🪐";
+      d.innerText="🪐";
     }
 
     grid.appendChild(d);
@@ -389,20 +316,13 @@ function renderExplore(){
   return c;
 }
 
-function renderContent(){
-  const c=document.getElementById("content");
-  c.innerHTML="";
-  if(gameState.activeArea==="Explore"){
-    c.appendChild(renderExplore());
-  } else {
-    c.innerText=gameState.activeArea+" (not implemented)";
-  }
-}
-
 function render(){
-  renderTabs();
-  renderInfo();
-  renderContent();
+  const content=document.getElementById("content");
+  content.innerHTML="";
+  content.appendChild(renderExplore());
+
+  document.getElementById("info").innerText=
+    "Player "+gameState.currentPlayer;
 }
 
 render();
