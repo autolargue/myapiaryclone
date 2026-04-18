@@ -7,11 +7,7 @@
 <style>
 body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 
-#tabs { display:flex; gap:5px; padding:10px; background:#111827; }
-.tab { padding:6px 10px; background:#1f2937; cursor:pointer; border-radius:4px; font-size:12px; }
-.tab.active { background:#2563eb; }
-
-#info { padding:6px 10px; font-size:12px; }
+#info { padding:8px; text-align:center; }
 
 #grid {
   display:grid;
@@ -23,13 +19,15 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 .tile {
   width:90px; height:90px;
   border:1px solid rgba(255,255,255,0.2);
-  background:rgba(255,255,255,0.05);
-  display:flex; flex-direction:column;
-  justify-content:center; align-items:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   cursor:pointer;
+  background:rgba(255,255,255,0.05);
 }
 
-.blocked { background:rgba(255,0,0,0.3); }
+.valid { background:rgba(0,255,0,0.25); }
+.path { background:rgba(255,255,0,0.3); }
 
 .worker-row { display:flex; justify-content:center; gap:5px; margin:8px; }
 .worker-slot {
@@ -37,33 +35,27 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   border:1px solid white;
   display:flex; align-items:center; justify-content:center;
 }
-
-.valid { background:rgba(0,255,0,0.25)!important; }
-.path { background:rgba(255,255,0,0.3)!important; }
 </style>
 </head>
 
 <body>
 
-<div id="tabs"></div>
 <div id="info"></div>
 <div id="content"></div>
 
 <script>
-const QUEEN_INDEX=15;
+const SIZE=4;
 
 const gameState={
   currentPlayer:1,
   playerCount:2,
-  activeArea:"Explore",
-
-  grid:Array(16).fill(null).map((_,i)=>({
-    planet:null,
-    revealed:false,
-    hasExploreToken:i!==QUEEN_INDEX
-  })),
 
   queenPosition:15,
+
+  grid:Array(16).fill(null).map(()=>({
+    planet:null,
+    revealed:false
+  })),
 
   exploreWorkers:[null,null],
   workerPlacedThisTurn:false,
@@ -76,8 +68,9 @@ const gameState={
 };
 
 /* ===== HELPERS ===== */
-function getCoords(i){return {x:i%4,y:Math.floor(i/4)};}
-function getIndex(x,y){return y*4+x;}
+function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
+function getIndex(x,y){return y*SIZE+x;}
+
 function isAdjacent(a,b){
   const A=getCoords(a),B=getCoords(b);
   return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
@@ -103,7 +96,7 @@ function addWorker(strength){
 }
 
 function bumpWorker(w){
-  console.log("Bump:",w);
+  console.log("Bump worker:",w);
 }
 
 function getTotalStrength(){
@@ -121,25 +114,16 @@ function getValidMoves(){
 
   const path=gameState.movement.path;
   const last=path[path.length-1];
-  const moves=[];
-  const {x,y}=getCoords(last);
 
+  const {x,y}=getCoords(last);
   const candidates=[
     {x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}
   ];
 
-  candidates.forEach(c=>{
-    if(c.x>=0 && c.x<4 && c.y>=0 && c.y<4){
-      const idx=getIndex(c.x,c.y);
-
-      // prevent backtracking
-      if(path.includes(idx)) return;
-
-      moves.push(idx);
-    }
-  });
-
-  return moves;
+  return candidates
+    .filter(c=>c.x>=0 && c.x<4 && c.y>=0 && c.y<4)
+    .map(c=>getIndex(c.x,c.y))
+    .filter(i=>!path.includes(i)); // prevent backtracking
 }
 
 function startMovement(){
@@ -167,27 +151,48 @@ function resetMovement(){
   render();
 }
 
-function endMovement(){
-  const path=gameState.movement.path;
-  const final=path[path.length-1];
+/* ===== ANIMATION ===== */
+function animateMovement(path, callback){
+  let step=0;
 
-  gameState.queenPosition=final;
+  function next(){
+    if(step>=path.length){
+      callback();
+      return;
+    }
+
+    gameState.queenPosition=path[step];
+    render();
+
+    step++;
+    setTimeout(next, 250);
+  }
+
+  next();
+}
+
+function endMovement(){
+  const path=[...gameState.movement.path];
+
   gameState.movement.active=false;
 
-  resolveExplore(final);
-  render();
+  animateMovement(path, ()=>{
+    const final=path[path.length-1];
+
+    resolveExplore(final);
+
+    render();
+  });
 }
 
 /* ===== EXPLORE ===== */
-function drawPlanet(){
-  return {name:"Planet", revealed:true};
-}
-
 function resolveExplore(i){
   const cell=gameState.grid[i];
+
   if(!cell.planet){
-    cell.planet=drawPlanet();
+    cell.planet=true; // placeholder
   }
+
   cell.revealed=true;
 
   endTurn();
@@ -195,9 +200,11 @@ function resolveExplore(i){
 
 function endTurn(){
   gameState.currentPlayer++;
-  if(gameState.currentPlayer>gameState.playerCount)gameState.currentPlayer=1;
+  if(gameState.currentPlayer>gameState.playerCount){
+    gameState.currentPlayer=1;
+  }
 
-  gameState.exploreWorkers=[null,null];
+  // IMPORTANT: workers persist now
   gameState.workerPlacedThisTurn=false;
 }
 
@@ -206,18 +213,20 @@ function endTurn(){
 function renderExplore(){
   const c=document.createElement("div");
 
-  /* workers */
+  /* worker slots */
   const row=document.createElement("div");
   row.className="worker-row";
+
   gameState.exploreWorkers.forEach(w=>{
     const box=document.createElement("div");
     box.className="worker-slot";
     box.innerText=w?("🐝 "+w):"Empty";
     row.appendChild(box);
   });
+
   c.appendChild(row);
 
-  /* add buttons */
+  /* add worker buttons */
   const sel=document.createElement("div");
   sel.className="worker-row";
 
@@ -234,12 +243,9 @@ function renderExplore(){
   /* text */
   const txt=document.createElement("div");
   txt.style.textAlign="center";
-  txt.innerText=
-    "Total strength = number of movements of Queen Ship: "+
-    getTotalStrength();
+  txt.innerText="Total strength = "+getTotalStrength();
   c.appendChild(txt);
 
-  /* movement info */
   if(gameState.movement.active){
     const info=document.createElement("div");
     info.style.textAlign="center";
@@ -251,22 +257,22 @@ function renderExplore(){
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  const startBtn=document.createElement("button");
-  startBtn.innerText="Start";
-  startBtn.disabled=gameState.movement.active;
-  startBtn.onclick=startMovement;
+  const start=document.createElement("button");
+  start.innerText="Start";
+  start.disabled=gameState.movement.active;
+  start.onclick=startMovement;
 
-  const endBtn=document.createElement("button");
-  endBtn.innerText="End Movement";
-  endBtn.onclick=endMovement;
+  const end=document.createElement("button");
+  end.innerText="End Movement";
+  end.onclick=endMovement;
 
-  const resetBtn=document.createElement("button");
-  resetBtn.innerText="Reset";
-  resetBtn.onclick=resetMovement;
+  const reset=document.createElement("button");
+  reset.innerText="Reset";
+  reset.onclick=resetMovement;
 
-  ctrl.appendChild(startBtn);
-  ctrl.appendChild(endBtn);
-  ctrl.appendChild(resetBtn);
+  ctrl.appendChild(start);
+  ctrl.appendChild(end);
+  ctrl.appendChild(reset);
 
   c.appendChild(ctrl);
 
@@ -280,13 +286,6 @@ function renderExplore(){
     const d=document.createElement("div");
     d.className="tile";
 
-    if(i===QUEEN_INDEX){
-      d.classList.add("blocked");
-      d.innerText="🚀";
-      grid.appendChild(d);
-      continue;
-    }
-
     d.onclick=()=>handleCellClick(i);
 
     if(gameState.movement.path.includes(i)){
@@ -298,28 +297,28 @@ function renderExplore(){
     }
 
     if(i===gameState.queenPosition){
-      d.style.border="2px solid yellow";
-    }
-
-    const cell=gameState.grid[i];
-
-    if(!cell.planet){
-      d.innerText="⭐";
+      d.innerText="🚀";
     } else {
-      d.innerText="🪐";
+      const cell=gameState.grid[i];
+
+      if(!cell.planet){
+        d.innerText=""; // blank space now
+      } else {
+        d.innerText="🪐";
+      }
     }
 
     grid.appendChild(d);
   }
 
   c.appendChild(grid);
+
   return c;
 }
 
 function render(){
-  const content=document.getElementById("content");
-  content.innerHTML="";
-  content.appendChild(renderExplore());
+  document.getElementById("content").innerHTML="";
+  document.getElementById("content").appendChild(renderExplore());
 
   document.getElementById("info").innerText=
     "Player "+gameState.currentPlayer;
