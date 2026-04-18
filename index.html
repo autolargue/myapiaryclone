@@ -30,6 +30,9 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   justify-content:center;
 }
 
+.selected { background:#2563eb; }
+
+/* grid */
 #grid {
   display:grid;
   grid-template-columns:repeat(4,90px);
@@ -43,7 +46,7 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   display:flex;
   flex-direction:column;
   justify-content:space-between;
-  align-items:center;
+  align-items:flex-start;
   background:rgba(255,255,255,0.05);
   padding:3px;
   box-sizing:border-box;
@@ -60,18 +63,19 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   height:28px;
   border-radius:50%;
   background: radial-gradient(circle at 30% 30%, #7dd3fc, #1e3a8a);
+  margin-left:5px;
 }
 
-.name { font-size:9px; }
-.sep { width:80%; height:1px; background:white; opacity:0.3; }
-.bonus { font-size:8px; }
+.name { font-size:9px; margin-left:5px; }
+.sep { width:70%; height:1px; background:white; opacity:0.3; margin-left:5px; }
+.bonus { font-size:8px; margin-left:5px; }
 
-/* ship overlay */
+/* ship */
 .ship {
   position:absolute;
-  top:2px;
-  right:4px;
-  font-size:16px;
+  top:30px;
+  right:5px;
+  font-size:18px;
 }
 
 .divider {
@@ -99,9 +103,20 @@ function basic(r){return {resource:r,filled:true,predefined:true};}
 
 const PLANETS=[
  {name:"Aurelion",slots:[empty()],hasFourStrength:false},
+ {name:"Brontes",slots:[empty()],hasFourStrength:false},
+ {name:"Cyris",slots:[empty()],hasFourStrength:false},
  {name:"Demeris",slots:[basic("pollen"),empty()],hasFourStrength:true},
+ {name:"Eryndor",slots:[basic("water"),empty()],hasFourStrength:false},
+ {name:"Farlune",slots:[basic("fiber"),empty()],hasFourStrength:true},
+ {name:"Glyra",slots:[empty(),empty()],hasFourStrength:false},
  {name:"Helion",slots:[basic("pollen"),empty(),empty()],hasFourStrength:true},
- {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false}
+ {name:"Icaris",slots:[basic("water"),empty(),empty()],hasFourStrength:false},
+ {name:"Jorath",slots:[basic("fiber"),empty(),empty()],hasFourStrength:true},
+ {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false},
+ {name:"Lythera",slots:[empty(),empty(),empty()],hasFourStrength:true},
+ {name:"Mykos",slots:[basic("pollen"),empty(),empty()],hasFourStrength:false},
+ {name:"Nerath",slots:[basic("water"),empty(),empty()],hasFourStrength:true},
+ {name:"Orivon",slots:[basic("fiber"),empty(),empty()],hasFourStrength:false}
 ];
 
 function drawPlanet(){
@@ -111,7 +126,6 @@ function drawPlanet(){
 function fmt(r){
   return r==="pollen"?"P":r==="fiber"?"F":r==="water"?"W":"?";
 }
-
 function renderSlots(p){
   return p.slots.map(s=>s.filled?`[${fmt(s.resource)}]`:"[ ]").join("  ");
 }
@@ -131,27 +145,29 @@ const gameState={
   exploreWorkers:[null,null],
   workerPlacedThisTurn:false,
 
+  selectedWorker:null,
+
   movement:{ active:false, path:[], maxSteps:0 }
 };
 
-/* ===== HELPERS ===== */
-function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
-function isAdjacent(a,b){
-  const A=getCoords(a),B=getCoords(b);
-  return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
+/* ===== WORKERS ===== */
+function selectWorker(s){
+  gameState.selectedWorker=s;
+  render();
 }
 
-/* ===== WORKERS ===== */
-function addWorker(s){
-  if(gameState.workerPlacedThisTurn) return;
+function confirmWorker(){
+  if(gameState.selectedWorker===null) return;
 
   const [l,r]=gameState.exploreWorkers;
+  const s=gameState.selectedWorker;
 
   if(l===null) gameState.exploreWorkers=[s,null];
   else if(r===null) gameState.exploreWorkers=[s,l];
   else gameState.exploreWorkers=[s,l];
 
   gameState.workerPlacedThisTurn=true;
+  gameState.selectedWorker=null;
   render();
 }
 
@@ -162,6 +178,12 @@ function getTotal(){
 /* ===== MOVEMENT ===== */
 function remaining(){
   return gameState.movement.maxSteps-(gameState.movement.path.length-1);
+}
+
+function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
+function isAdjacent(a,b){
+  const A=getCoords(a),B=getCoords(b);
+  return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
 }
 
 function validMoves(){
@@ -180,11 +202,7 @@ function startMovement(){
   const t=getTotal();
   if(t===0) return;
 
-  gameState.movement={
-    active:true,
-    path:[gameState.queenPosition],
-    maxSteps:t
-  };
+  gameState.movement={active:true,path:[gameState.queenPosition],maxSteps:t};
   render();
 }
 
@@ -219,9 +237,7 @@ function endMovement(){
   gameState.movement.active=false;
 
   animate(path,()=>{
-    const final=path[path.length-1];
-    resolveExplore(final);
-
+    resolveExplore(path[path.length-1]);
     gameState.movement.path=[];
     render();
   });
@@ -270,7 +286,7 @@ function renderTabs(){
 function renderExplore(){
   const root=document.createElement("div");
 
-  /* workers */
+  /* worker slots */
   const row=document.createElement("div");
   row.className="worker-row";
 
@@ -287,30 +303,39 @@ function renderExplore(){
 
   root.appendChild(row);
 
-  /* worker buttons */
-  const btns=document.createElement("div");
-  btns.className="worker-row";
+  /* selection */
+  if(!gameState.workerPlacedThisTurn){
+    const sel=document.createElement("div");
+    sel.className="worker-row";
 
-  [1,2,3,4].forEach(s=>{
-    const b=document.createElement("button");
-    b.innerText="Add W"+s;
-    b.disabled=gameState.workerPlacedThisTurn;
-    b.onclick=()=>addWorker(s);
-    btns.appendChild(b);
-  });
+    [1,2,3,4].forEach(s=>{
+      const b=document.createElement("button");
+      b.innerText="W"+s;
+      if(gameState.selectedWorker===s) b.classList.add("selected");
+      b.onclick=()=>selectWorker(s);
+      sel.appendChild(b);
+    });
 
-  root.appendChild(btns);
+    const confirm=document.createElement("button");
+    confirm.innerText="Confirm Worker";
+    confirm.onclick=confirmWorker;
 
-  /* movement controls */
+    sel.appendChild(confirm);
+    root.appendChild(sel);
+  }
+
+  /* controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  if(!gameState.movement.active){
+  if(gameState.workerPlacedThisTurn && !gameState.movement.active){
     const start=document.createElement("button");
     start.innerText="Start movement";
     start.onclick=startMovement;
     ctrl.appendChild(start);
-  } else {
+  }
+
+  if(gameState.movement.active){
     const end=document.createElement("button");
     end.innerText="End movement";
     end.onclick=endMovement;
@@ -324,18 +349,6 @@ function renderExplore(){
   }
 
   root.appendChild(ctrl);
-
-  /* moves */
-  if(gameState.movement.active){
-    const m=document.createElement("div");
-    m.style.textAlign="center";
-    m.innerText="Moves remaining: "+remaining();
-    root.appendChild(m);
-
-    const d=document.createElement("div");
-    d.className="divider";
-    root.appendChild(d);
-  }
 
   /* grid */
   const grid=document.createElement("div");
@@ -353,20 +366,18 @@ function renderExplore(){
     if(gameState.movement.path.includes(i)) d.classList.add("path");
     if(valid.includes(i)) d.classList.add("valid");
 
-    /* planet content FIRST */
     if(cell.planet && cell.revealed){
       d.innerHTML=`
         <div class="slots">${renderSlots(cell.planet)}</div>
         <div class="planet-art"></div>
         <div class="name">${cell.planet.name}</div>
         <div class="sep"></div>
-        <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
+        <div class="bonus">${cell.planet.hasFourStrength?"4-strength power":""}</div>
       `;
     } else if(!cell.visited){
       d.innerText="⭐";
     }
 
-    /* ship overlay */
     if(i===gameState.queenPosition){
       const ship=document.createElement("div");
       ship.className="ship";
