@@ -8,19 +8,8 @@
 body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 
 /* TABS */
-#tabs {
-  display:flex;
-  gap:5px;
-  padding:10px;
-  background:#111827;
-}
-.tab {
-  padding:6px 10px;
-  background:#1f2937;
-  cursor:pointer;
-  border-radius:4px;
-  font-size:12px;
-}
+#tabs { display:flex; gap:5px; padding:10px; background:#111827; }
+.tab { padding:6px 10px; background:#1f2937; cursor:pointer; border-radius:4px; font-size:12px; }
 .tab.active { background:#2563eb; }
 
 #info { text-align:center; padding:8px; }
@@ -56,17 +45,28 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   border:1px solid rgba(255,255,255,0.2);
   display:flex;
   flex-direction:column;
-  justify-content:center;
+  justify-content:space-between;
   align-items:center;
   cursor:pointer;
   background:rgba(255,255,255,0.05);
+  padding:3px;
+  box-sizing:border-box;
 }
 
 .valid { background:rgba(0,255,0,0.25); }
 .path { background:rgba(255,255,0,0.3); }
 
 .slots { font-size:9px; font-family:monospace; }
+
+.planet-art {
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #7dd3fc, #1e3a8a);
+}
+
 .name { font-size:9px; }
+.sep { width:80%; height:1px; background:white; opacity:0.3; }
 .bonus { font-size:8px; }
 
 .divider {
@@ -97,17 +97,17 @@ const PLANETS=[
  {name:"Aurelion",slots:[empty()],hasFourStrength:false},
  {name:"Brontes",slots:[empty()],hasFourStrength:false},
  {name:"Cyris",slots:[empty()],hasFourStrength:false},
- {name:"Demeris",slots:[basic("pollen"),empty()],hasFourStrength:true,onFour:fourStrength},
+ {name:"Demeris",slots:[basic("pollen"),empty()],hasFourStrength:true},
  {name:"Eryndor",slots:[basic("water"),empty()],hasFourStrength:false},
- {name:"Farlune",slots:[basic("fiber"),empty()],hasFourStrength:true,onFour:fourStrength},
+ {name:"Farlune",slots:[basic("fiber"),empty()],hasFourStrength:true},
  {name:"Glyra",slots:[empty(),empty()],hasFourStrength:false},
- {name:"Helion",slots:[basic("pollen"),empty(),empty()],hasFourStrength:true,onFour:fourStrength},
+ {name:"Helion",slots:[basic("pollen"),empty(),empty()],hasFourStrength:true},
  {name:"Icaris",slots:[basic("water"),empty(),empty()],hasFourStrength:false},
- {name:"Jorath",slots:[basic("fiber"),empty(),empty()],hasFourStrength:true,onFour:fourStrength},
+ {name:"Jorath",slots:[basic("fiber"),empty(),empty()],hasFourStrength:true},
  {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false},
- {name:"Lythera",slots:[empty(),empty(),empty()],hasFourStrength:true,onFour:fourStrength},
+ {name:"Lythera",slots:[empty(),empty(),empty()],hasFourStrength:true},
  {name:"Mykos",slots:[basic("pollen"),empty(),empty()],hasFourStrength:false},
- {name:"Nerath",slots:[basic("water"),empty(),empty()],hasFourStrength:true,onFour:fourStrength},
+ {name:"Nerath",slots:[basic("water"),empty(),empty()],hasFourStrength:true},
  {name:"Orivon",slots:[basic("fiber"),empty(),empty()],hasFourStrength:false}
 ];
 
@@ -126,7 +126,6 @@ function renderSlots(p){
 const gameState={
   currentPlayer:1,
   activeArea:"Explore",
-
   queenPosition:15,
 
   grid:Array(16).fill(null).map(()=>({
@@ -143,8 +142,6 @@ const gameState={
 
 /* ===== HELPERS ===== */
 function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
-function getIndex(x,y){return y*SIZE+x;}
-
 function isAdjacent(a,b){
   const A=getCoords(a),B=getCoords(b);
   return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
@@ -155,16 +152,13 @@ function addWorker(s){
   if(gameState.workerPlacedThisTurn) return;
 
   const [l,r]=gameState.exploreWorkers;
-
   if(l===null) gameState.exploreWorkers=[s,null];
   else if(r===null) gameState.exploreWorkers=[s,l];
-  else { bumpWorker(r); gameState.exploreWorkers=[s,l]; }
+  else gameState.exploreWorkers=[s,l];
 
   gameState.workerPlacedThisTurn=true;
   render();
 }
-
-function bumpWorker(w){ console.log("bump",w); }
 
 function getTotal(){
   return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
@@ -185,18 +179,27 @@ function validMoves(){
     .filter(i=>i>=0 && i<16)
     .filter(i=>isAdjacent(last,i))
     .filter(i=>!path.includes(i))
-    .filter(i=>!gameState.grid[i].visited); // NEW: block visited
+    .filter(i=>!gameState.grid[i].visited);
 }
 
 function startMovement(){
   const t=getTotal();
-  if(t===0){alert("add worker");return;}
-  gameState.movement={active:true,path:[gameState.queenPosition],maxSteps:t};
+  if(t===0) return;
+
+  gameState.movement={
+    active:true,
+    path:[gameState.queenPosition],
+    maxSteps:t
+  };
+  render();
+}
+
+function resetMovement(){
+  gameState.movement.path=[gameState.queenPosition];
   render();
 }
 
 function clickCell(i){
-  if(!gameState.movement.active) return;
   if(!validMoves().includes(i)) return;
   gameState.movement.path.push(i);
   render();
@@ -219,16 +222,14 @@ function endMovement(){
   const start=path[0];
 
   gameState.grid[start].visited=true;
-
   gameState.movement.active=false;
 
   animate(path,()=>{
     const final=path[path.length-1];
+
     resolveExplore(final);
 
-    // CLEAR PATH
     gameState.movement.path=[];
-
     render();
   });
 }
@@ -240,13 +241,11 @@ function resolveExplore(i){
   if(!cell.planet){
     cell.planet=drawPlanet();
 
-    const s=cell.planet.slots[0];
-    if(s.filled && s.predefined){}
-
     const empty=cell.planet.slots.find(x=>!x.filled);
     if(empty){
       const t=["pollen","fiber","water"][Math.floor(Math.random()*3)];
-      empty.resource=t; empty.filled=true;
+      empty.resource=t;
+      empty.filled=true;
     }
   }
 
@@ -278,6 +277,7 @@ function renderTabs(){
 function renderExplore(){
   const root=document.createElement("div");
 
+  /* workers */
   const row=document.createElement("div");
   row.className="worker-row";
 
@@ -294,6 +294,7 @@ function renderExplore(){
 
   root.appendChild(row);
 
+  /* buttons */
   const btns=document.createElement("div");
   btns.className="worker-row";
 
@@ -307,11 +308,13 @@ function renderExplore(){
 
   root.appendChild(btns);
 
+  /* controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
   const start=document.createElement("button");
   start.innerText="Start movement";
+  start.disabled=gameState.movement.active;
   start.onclick=startMovement;
 
   const end=document.createElement("button");
@@ -320,8 +323,17 @@ function renderExplore(){
 
   ctrl.appendChild(start);
   ctrl.appendChild(end);
+
+  if(gameState.movement.active){
+    const reset=document.createElement("button");
+    reset.innerText="Reset";
+    reset.onclick=resetMovement;
+    ctrl.appendChild(reset);
+  }
+
   root.appendChild(ctrl);
 
+  /* moves */
   if(gameState.movement.active){
     const m=document.createElement("div");
     m.style.textAlign="center";
@@ -333,6 +345,7 @@ function renderExplore(){
     root.appendChild(d);
   }
 
+  /* grid */
   const grid=document.createElement("div");
   grid.id="grid";
 
@@ -353,8 +366,10 @@ function renderExplore(){
     } else if(cell.planet && cell.revealed){
       d.innerHTML=`
         <div class="slots">${renderSlots(cell.planet)}</div>
+        <div class="planet-art"></div>
         <div class="name">${cell.planet.name}</div>
-        <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
+        <div class="sep"></div>
+        <div class="bonus">${cell.hasFourStrength?"⚡":""}</div>
       `;
     } else if(!cell.visited){
       d.innerText="⭐";
@@ -377,8 +392,6 @@ function render(){
 
   if(gameState.activeArea==="Explore"){
     content.appendChild(renderExplore());
-  } else {
-    content.innerText=gameState.activeArea+" (not implemented)";
   }
 
   document.getElementById("info").innerText="Player "+gameState.currentPlayer;
