@@ -75,9 +75,7 @@ const PLANETS=[
 ];
 
 function drawPlanet(){
- const p=deepClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]);
- if(!p.slots) p.slots=[];
- return p;
+ return deepClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]);
 }
 
 function fmt(r){return r==="pollen"?"P":r==="fiber"?"F":"W";}
@@ -100,6 +98,78 @@ const gameState={
  pendingChoice:null
 };
 
+/* WORKERS */
+function selectWorker(s){gameState.selectedWorker=s;render();}
+function confirmWorker(){
+ if(gameState.selectedWorker===null) return;
+ const s=gameState.selectedWorker;
+ const [l,r]=gameState.exploreWorkers;
+ if(l===null) gameState.exploreWorkers=[s,null];
+ else if(r===null) gameState.exploreWorkers=[s,l];
+ else gameState.exploreWorkers=[s,l];
+ gameState.lastPlacedWorker=s;
+ gameState.selectedWorker=null;
+ gameState.workerPlacedThisTurn=true;
+ render();
+}
+function totalStrength(){
+ return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
+}
+
+/* MOVEMENT */
+function coords(i){return {x:i%4,y:Math.floor(i/4)};}
+function adj(a,b){
+ const A=coords(a),B=coords(b);
+ return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
+}
+function remaining(){
+ return gameState.movement.maxSteps-(gameState.movement.path.length-1);
+}
+function valid(){
+ if(!gameState.movement.active||remaining()<=0) return [];
+ const path=gameState.movement.path;
+ const last=path[path.length-1];
+ return [last+1,last-1,last+4,last-4]
+  .filter(i=>i>=0&&i<16)
+  .filter(i=>adj(last,i))
+  .filter(i=>!path.includes(i));
+}
+function startMovement(){
+ const t=totalStrength();
+ if(!t) return;
+ gameState.movement={active:true,path:[gameState.queenPosition],maxSteps:t};
+ render();
+}
+function resetMovement(){
+ gameState.movement.path=[gameState.queenPosition];
+ render();
+}
+function clickTile(i){
+ if(!valid().includes(i)) return;
+ gameState.movement.path.push(i);
+ render();
+}
+function animate(path,done){
+ let s=1;
+ function next(){
+  if(s>=path.length){done();return;}
+  gameState.queenPosition=path[s];
+  render();
+  s++;setTimeout(next,200);
+ }
+ next();
+}
+function endMovement(){
+ const path=[...gameState.movement.path];
+ gameState.movement.active=false;
+ animate(path,()=>{
+  resolveExplore(path[path.length-1]);
+  gameState.movement.path=[];
+  render();
+ });
+}
+
+/* EXPLORE FIXED */
 function resolveExplore(i){
  const cell=gameState.grid[i];
  gameState.lastGain={planet:[],four:false};
@@ -108,12 +178,12 @@ function resolveExplore(i){
   cell.planet=drawPlanet();
  }
 
- /* gain existing */
+ // gain existing
  cell.planet.slots.forEach(s=>{
   if(s.filled) gameState.lastGain.planet.push(s.resource);
  });
 
- /* check empty slot ALWAYS */
+ // ALWAYS check empty slot
  const empty=cell.planet.slots.find(s=>!s.filled);
  if(empty){
   gameState.pendingChoice={index:i};
@@ -129,6 +199,7 @@ function resolveExplore(i){
  cell.visited=true;
 }
 
+/* CHOICE */
 function chooseResource(res){
  const {index}=gameState.pendingChoice;
  const cell=gameState.grid[index];
@@ -143,13 +214,174 @@ function chooseResource(res){
  render();
 }
 
-/* ===== rest unchanged (movement + render identical to previous stable version) ===== */
+/* TURN */
+function endTurn(){
+ gameState.currentPlayer++;
+ if(gameState.currentPlayer>5) gameState.currentPlayer=1;
+ gameState.workerPlacedThisTurn=false;
+}
+
+/* RENDER */
+function renderTabs(){
+ const t=document.getElementById("tabs");
+ t.innerHTML="";
+ AREAS.forEach(a=>{
+  const d=document.createElement("div");
+  d.className="tab"+(a===gameState.activeArea?" active":"");
+  d.innerText=a;
+  d.onclick=()=>{gameState.activeArea=a;render();};
+  t.appendChild(d);
+ });
+}
+
+function renderExplore(){
+ const root=document.createElement("div");
+
+ const row=document.createElement("div");
+ row.className="worker-row";
+
+ gameState.exploreWorkers.forEach(w=>{
+  const b=document.createElement("div");
+  b.className="worker-slot";
+  b.innerText=w?("🐝 "+w):"Empty";
+  row.appendChild(b);
+ });
+
+ const t=document.createElement("div");
+ t.innerText="Total strength = "+totalStrength();
+ row.appendChild(t);
+ root.appendChild(row);
+
+ if(!gameState.workerPlacedThisTurn){
+  const sel=document.createElement("div");
+  sel.className="worker-row";
+  [1,2,3,4].forEach(s=>{
+   const b=document.createElement("button");
+   b.innerText="W"+s;
+   if(gameState.selectedWorker===s) b.classList.add("selected");
+   b.onclick=()=>selectWorker(s);
+   sel.appendChild(b);
+  });
+  const c=document.createElement("button");
+  c.innerText="Confirm Worker";
+  c.onclick=confirmWorker;
+  sel.appendChild(c);
+  root.appendChild(sel);
+ }
+
+ const ctrl=document.createElement("div");
+ ctrl.className="worker-row";
+
+ if(gameState.workerPlacedThisTurn && !gameState.movement.active){
+  const s=document.createElement("button");
+  s.innerText="Start movement";
+  s.onclick=startMovement;
+  ctrl.appendChild(s);
+ }
+
+ if(gameState.movement.active){
+  const e=document.createElement("button");
+  e.innerText="End movement";
+  e.onclick=endMovement;
+  const r=document.createElement("button");
+  r.innerText="Reset";
+  r.onclick=resetMovement;
+  ctrl.appendChild(e);
+  ctrl.appendChild(r);
+ }
+
+ root.appendChild(ctrl);
+
+ if(gameState.movement.active){
+  const m=document.createElement("div");
+  m.style.textAlign="center";
+  m.innerText="Moves remaining: "+remaining();
+  root.appendChild(m);
+  const d=document.createElement("div");
+  d.className="divider";
+  root.appendChild(d);
+ }
+
+ const grid=document.createElement("div");
+ grid.id="grid";
+ const v=valid();
+
+ for(let i=0;i<16;i++){
+  const cell=gameState.grid[i];
+  const tile=document.createElement("div");
+  tile.className="tile";
+  tile.onclick=()=>clickTile(i);
+
+  if(gameState.movement.path.includes(i)) tile.classList.add("path");
+  if(v.includes(i)) tile.classList.add("valid");
+
+  if(cell.planet && cell.revealed){
+   tile.innerHTML=`
+    <div class="slots">${renderSlots(cell.planet)}</div>
+    <div class="planet-art"></div>
+    <div class="name">${cell.planet.name}</div>
+    <div class="sep"></div>
+    <div class="bonus">${cell.planet.hasFourStrength?"4-strength power":""}</div>
+   `;
+  } else if(!cell.visited){
+   tile.innerText="⭐";
+  }
+
+  if(i===gameState.queenPosition){
+   const ship=document.createElement("div");
+   ship.className="ship";
+   ship.innerText="🚀";
+   tile.appendChild(ship);
+  }
+
+  grid.appendChild(tile);
+ }
+
+ root.appendChild(grid);
+
+ if(gameState.pendingChoice){
+  const box=document.createElement("div");
+  box.id="choiceBox";
+  box.innerText="Choose resource: ";
+  RES.forEach(r=>{
+   const b=document.createElement("button");
+   b.innerText=r;
+   b.onclick=()=>chooseResource(r);
+   box.appendChild(b);
+  });
+  root.appendChild(box);
+ }
+
+ const gains=document.createElement("div");
+ gains.id="gains";
+
+ if(gameState.lastGain.planet.length){
+  const l=document.createElement("div");
+  l.innerText="Planet reward: "+gameState.lastGain.planet.join(", ");
+  gains.appendChild(l);
+ }
+
+ if(gameState.lastGain.four){
+  const f=document.createElement("div");
+  f.innerText="4-strength power";
+  gains.appendChild(f);
+ }
+
+ root.appendChild(gains);
+
+ return root;
+}
 
 function render(){
- document.getElementById("tabs").innerHTML="Explore only";
+ renderTabs();
  const c=document.getElementById("content");
- c.innerHTML="<div style='padding:20px;text-align:center'>Continue using your previous full render (unchanged)</div>";
+ c.innerHTML="";
+ if(gameState.activeArea==="Explore"){
+  c.appendChild(renderExplore());
+ }
+ document.getElementById("info").innerText="Player "+gameState.currentPlayer;
 }
+
 render();
 </script>
 
