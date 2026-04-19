@@ -122,7 +122,7 @@ const gameState={
   activeArea:"Explore",
   queenPosition:15,
 
-  grid:Array(16).fill(null).map(()=>( {
+  grid:Array(16).fill(null).map(()=>({
     planet:null,
     revealed:false,
     visited:false
@@ -130,6 +130,7 @@ const gameState={
 
   exploreWorkers:[null,null],
   workerPlacedThisTurn:false,
+  workerConfirmed:false,
 
   movement:{ active:false, path:[], maxSteps:0 }
 };
@@ -152,6 +153,12 @@ function addWorker(s){
   else gameState.exploreWorkers=[s,l];
 
   gameState.workerPlacedThisTurn=true;
+  render();
+}
+
+function confirmWorker(){
+  if(!gameState.workerPlacedThisTurn) return;
+  gameState.workerConfirmed=true;
   render();
 }
 
@@ -252,6 +259,7 @@ function endTurn(){
   gameState.currentPlayer++;
   if(gameState.currentPlayer>2) gameState.currentPlayer=1;
   gameState.workerPlacedThisTurn=false;
+  gameState.workerConfirmed=false;
 }
 
 /* ===== RENDER ===== */
@@ -299,15 +307,27 @@ function renderExplore(){
 
   root.appendChild(btns);
 
+  // CONFIRM BUTTON
+  const confirmRow=document.createElement("div");
+  confirmRow.className="worker-row";
+
+  const confirmBtn=document.createElement("button");
+  confirmBtn.innerText="Confirm worker";
+  confirmBtn.disabled=!gameState.workerPlacedThisTurn || gameState.workerConfirmed;
+  confirmBtn.onclick=confirmWorker;
+
+  confirmRow.appendChild(confirmBtn);
+  root.appendChild(confirmRow);
+
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  if(!gameState.movement.active){
+  if(!gameState.movement.active && gameState.workerConfirmed){
     const start=document.createElement("button");
     start.innerText="Start movement";
     start.onclick=startMovement;
     ctrl.appendChild(start);
-  } else {
+  } else if(gameState.movement.active){
     const end=document.createElement("button");
     end.innerText="End movement";
     end.onclick=endMovement;
