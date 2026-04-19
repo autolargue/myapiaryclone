@@ -130,7 +130,20 @@ function createPlayer(){
     victoryPoints:0,
     queenFavor:0,
     wax:0,
-    researchCards:0
+    honey: 0,
+    researchCards:0,
+    active1Strength:0,
+    active2Strength:0,
+    active3Strength:0,
+    active4Strength:0,
+    landed1Strength:0,
+    landed2Strength:0,
+    landed3Strength:0,
+    landed4Strength:0,
+    exploreTokenCount:0,
+    hibernationTokenCount:0,
+    danceToken:1,
+    startingTileUpgraded:0
   };
 }
 
@@ -155,10 +168,21 @@ function empty(){return {resource:null,filled:false};}
 function basic(r){return {resource:r,filled:true};}
 
 const PLANETS=[
- {name:"Aurelion",slots:[empty()],hasFourStrength:false},
- {name:"Demeris",slots:[basic("pollen"),empty()],hasFourStrength:true},
- {name:"Helion",slots:[basic("pollen"),empty(),empty()],hasFourStrength:true},
- {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false}
+ {name:"Arilou",slots:[empty()],hasFourStrength:false},
+ {name:"Chenjesu",slots:[empty(),empty()],hasFourStrength:false},
+ {name:"Chmmr",slots:[empty(),empty(),empty()],hasFourStrength:false},
+ {name:"Dnyarri",slots:[basic("pollen"),empty()],hasFourStrength:true},
+ {name:"Druuge",slots:[basic("fiber"),empty()],hasFourStrength:false},
+ {name:"Ilwrath",slots:[basic("water"),empty()],hasFourStrength:false},
+ {name:"Melnorme",slots:[basic("pollen"),basic("water")],hasFourStrength:true},
+ {name:"Mycon",slots:[basic("fiber"),basic("water")],hasFourStrength:false},
+ {name:"Pkunk",slots:[basic("pollen"),basic("fiber"),empty()],hasFourStrength:false},
+ {name:"Shofixti",slots:[basic("pollen"),basic("water"),basic("fiber")],hasFourStrength:true},
+ {name:"Spathi",slots:[empty()],hasFourStrength:false},
+ {name:"Supox",slots:[empty(),empty()],hasFourStrength:false},
+ {name:"Traddash",slots:[empty(),empty(),empty()],hasFourStrength:true},
+ {name:"Umgah",slots:[basic("pollen"),empty()],hasFourStrength:false},
+ {name:"Utwig",slots:[basic("fiber"),empty(),empty()],hasFourStrength:false}
 ];
 
 function drawPlanet(){
