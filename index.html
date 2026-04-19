@@ -5,55 +5,126 @@
 <title>Apiary Explore Prototype</title>
 
 <style>
-body{margin:0;background:#0b1020;color:white;font-family:Arial;display:flex;}
-#leftPanel{width:260px;background:#111827;padding:15px;font-size:13px;border-right:1px solid #333;}
-#main{flex:1;}
-#tabs{display:flex;gap:6px;padding:10px;background:#111827;}
-.tab{padding:6px 12px;background:#1f2937;border-radius:4px;cursor:pointer;font-size:12px;}
+body{
+  margin:0;
+  background:#0b1020;
+  color:white;
+  font-family:Arial;
+  display:flex;
+}
+
+/* LEFT PANEL */
+#leftPanel{
+  width:240px;
+  background:#111827;
+  padding:12px;
+  font-size:12px;
+  border-right:1px solid #333;
+}
+
+/* CENTER AREA */
+#main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+/* TABS */
+#tabs{
+  display:flex;
+  gap:6px;
+  padding:10px;
+  background:#111827;
+}
+
+.tab{
+  padding:6px 10px;
+  background:#1f2937;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:12px;
+}
 .tab.active{background:#2563eb;}
-#info{text-align:center;padding:8px;}
-.worker-row{display:flex;justify-content:center;align-items:center;gap:10px;margin:10px;}
-.worker-slot{width:80px;height:40px;border:1px solid white;display:flex;align-items:center;justify-content:center;}
-.selected{background:#2563eb;}
-#grid{display:grid;grid-template-columns:repeat(4,90px);gap:4px;justify-content:center;}
-.tile{width:90px;height:90px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);display:flex;flex-direction:column;justify-content:space-between;padding:4px;position:relative;}
-.valid{background:rgba(0,255,0,0.25);}
-.path{background:rgba(255,255,0,0.25);}
-.ship{position:absolute;top:30px;right:5px;}
-#gains{text-align:center;margin-top:10px;font-size:12px;}
-#choiceBox{text-align:center;margin-top:10px;}
+
+/* CONTENT AREA */
+#content{
+  flex:1;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding-top:10px;
+}
+
+/* GRID */
+#grid{
+  display:grid;
+  grid-template-columns:repeat(4,90px);
+  gap:4px;
+}
+
+.tile{
+  width:90px;
+  height:90px;
+  border:1px solid rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.05);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+}
+
+/* RIGHT PANEL */
+#rightPanel{
+  width:260px;
+  background:#111827;
+  padding:12px;
+  font-size:12px;
+  border-left:1px solid #333;
+}
+
+/* PLAYER BOX */
+.playerBox{
+  line-height:1.6;
+  background:#0f172a;
+  padding:10px;
+  border-radius:6px;
+}
+
+button{margin:3px;}
 </style>
 </head>
 
 <body>
 
+<!-- LEFT -->
 <div id="leftPanel">
-<b>Explore Instructions</b><br><br>
-1- Pick a worker<br>
-2- Confirm → Start movement<br>
-3- End movement → gain rewards<br>
-4- Fill empty slots when available<br><br>
-
-<b>Player State</b>
-<div id="playerState"></div>
+<b>Explore Rules</b><br><br>
+Move ship, explore planets, fill slots.<br>
+Gain resources and future upgrades.<br><br>
+Click tiles to interact.
 </div>
 
+<!-- CENTER -->
 <div id="main">
-<div id="tabs"></div>
-<div id="info"></div>
-<div id="content"></div>
+  <div id="tabs"></div>
+  <div id="content"></div>
+</div>
+
+<!-- RIGHT -->
+<div id="rightPanel">
+  <b>Player State</b>
+  <div id="playerState"></div>
 </div>
 
 <script>
+
+/* ===== STATE ===== */
 const RES=["pollen","fiber","water"];
 
-/* ===== PLAYER MODEL ===== */
 function createPlayer(id){
  return {
   id,
-  resources:{
-   pollen:0,fiber:0,water:0,wax:0,honey:0
-  },
+  resources:{pollen:0,fiber:0,water:0,wax:0,honey:0},
   activePool:[null,null,null,null],
   landingArea:[null,null,null,null],
   hibernationTokens:7
@@ -63,135 +134,88 @@ function createPlayer(id){
 const gameState={
  players:[createPlayer(1),createPlayer(2)],
  currentPlayerIndex:0,
- queenPosition:15,
  grid:Array(16).fill(null).map(()=>({planet:null,revealed:false}))
 };
 
-/* ===== PLANETS ===== */
-function empty(){return {resource:null,filled:false};}
-function basic(r){return {resource:r,filled:true};}
-
-const PLANETS=[
- {name:"Aurelion",slots:[empty()]},
- {name:"Demeris",slots:[basic("pollen"),empty()]},
- {name:"Helion",slots:[basic("water"),empty(),empty()]}
-];
-
-function drawPlanet(){
- return JSON.parse(JSON.stringify(PLANETS[Math.floor(Math.random()*PLANETS.length)]));
-}
-
-/* ===== CORE LOGIC ===== */
 function currentPlayer(){
  return gameState.players[gameState.currentPlayerIndex];
 }
 
-function resolveExplore(i){
- const cell=gameState.grid[i];
- if(!cell.planet) cell.planet=drawPlanet();
+/* ===== TABS ===== */
+const AREAS=["Explore","Grow","Convert","Research"];
 
- // gain resources
- cell.planet.slots.forEach(s=>{
-  if(s.filled){
-   currentPlayer().resources[s.resource]++;
-  }
+function renderTabs(){
+ const t=document.getElementById("tabs");
+ t.innerHTML="";
+ AREAS.forEach(a=>{
+  const d=document.createElement("div");
+  d.className="tab active";
+  d.innerText=a;
+  t.appendChild(d);
  });
-
- // fill empty
- const emptySlot=cell.planet.slots.find(s=>!s.filled);
- if(emptySlot){
-  gameState.pendingChoice={index:i};
- } else {
-  endTurn();
- }
-
- cell.revealed=true;
 }
 
-function chooseResource(res){
- const {index}=gameState.pendingChoice;
- const cell=gameState.grid[index];
+/* ===== GRID ===== */
+function renderGrid(){
+ const grid=document.createElement("div");
+ grid.id="grid";
 
- const slot=cell.planet.slots.find(s=>!s.filled);
- if(slot){
-  slot.resource=res;
-  slot.filled=true;
-  currentPlayer().resources[res]++;
+ for(let i=0;i<16;i++){
+  const tile=document.createElement("div");
+  tile.className="tile";
+
+  const cell=gameState.grid[i];
+  tile.innerText = cell.planet ? "🌍" : "⭐";
+
+  tile.onclick=()=>{
+    if(!cell.planet){
+      cell.planet={name:"Planet",slots:[]};
+    }
+    cell.revealed=true;
+    render();
+  };
+
+  grid.appendChild(tile);
  }
 
- gameState.pendingChoice=null;
- endTurn();
- render();
+ return grid;
 }
 
-function endTurn(){
- gameState.currentPlayerIndex++;
- if(gameState.currentPlayerIndex>=gameState.players.length){
-  gameState.currentPlayerIndex=0;
- }
-}
-
-/* ===== UI ===== */
-function renderPlayerState(){
+/* ===== PLAYER PANEL ===== */
+function renderPlayer(){
  const p=currentPlayer();
  document.getElementById("playerState").innerHTML=`
- Player ${p.id}<br>
- Resources: P:${p.resources.pollen} F:${p.resources.fiber} W:${p.resources.water}<br>
- Hibernation: ${p.hibernationTokens}<br>
- Active Pool: ${JSON.stringify(p.activePool)}<br>
- Landing: ${JSON.stringify(p.landingArea)}
+ Player ${p.id}<br><br>
+
+ Resources:<br>
+ P:${p.resources.pollen}<br>
+ F:${p.resources.fiber}<br>
+ W:${p.resources.water}<br><br>
+
+ Hibernation: ${p.hibernationTokens}<br><br>
+
+ Active Pool:<br>
+ ${JSON.stringify(p.activePool)}<br><br>
+
+ Landing Area:<br>
+ ${JSON.stringify(p.landingArea)}
  `;
 }
 
-function renderGrid(){
- const root=document.createElement("div");
- root.id="grid";
-
- for(let i=0;i<16;i++){
-  const cell=gameState.grid[i];
-  const t=document.createElement("div");
-  t.className="tile";
-  t.onclick=()=>resolveExplore(i);
-
-  if(cell.planet && cell.revealed){
-   t.innerText=cell.planet.name;
-  } else {
-   t.innerText="⭐";
-  }
-
-  if(i===gameState.queenPosition){
-   t.innerHTML+=" 🚀";
-  }
-
-  root.appendChild(t);
- }
-
- return root;
-}
-
+/* ===== MAIN RENDER ===== */
 function render(){
- renderPlayerState();
+ renderTabs();
 
  const c=document.getElementById("content");
  c.innerHTML="";
  c.appendChild(renderGrid());
 
- document.getElementById("info").innerText="Player "+currentPlayer().id;
-
- if(gameState.pendingChoice){
-  const box=document.createElement("div");
-  box.id="choiceBox";
-  RES.forEach(r=>{
-   const b=document.createElement("button");
-   b.innerText=r;
-   b.onclick=()=>chooseResource(r);
-   box.appendChild(b);
-  });
-  c.appendChild(box);
- }
+ renderPlayer();
 }
 
+/* INIT */
 render();
+
 </script>
 
 </body>
