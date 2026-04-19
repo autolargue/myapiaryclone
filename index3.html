@@ -79,6 +79,14 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   background:white;
   margin:5px auto;
 }
+
+/* Welcome page */
+#welcome {
+  max-width:600px;
+  margin:40px auto;
+  text-align:center; /* centers paragraph block */
+  line-height:1.5;
+}
 </style>
 </head>
 
@@ -90,7 +98,7 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 
 <script>
 const SIZE=4;
-const AREAS=["Explore","Grow","Convert","Research","Carve","Hibernation"];
+const AREAS=["Welcome","Explore","Grow","Convert","Research","Carve","Hibernation"];
 
 /* ===== PLANETS ===== */
 function empty(){return {resource:null,filled:false,predefined:false};}
@@ -118,7 +126,7 @@ function renderSlots(p){
 /* ===== STATE ===== */
 const gameState={
   currentPlayer:1,
-  activeArea:"Explore",
+  activeArea:"Welcome",
   queenPosition:15,
 
   grid:Array(16).fill(null).map(()=>({
@@ -281,6 +289,15 @@ function renderTabs(){
   });
 }
 
+function renderWelcome(){
+  const div=document.createElement("div");
+  div.id="welcome";
+  div.innerText = `Welcome to my Apiary clone. 
+
+Explore: Add an available worker from your docking mat. Confirm the worker selection and Start movement. End the movement to collect resources from an explore token if available and from the planet. If a slot is available on the planet, select one of the basic resources to add and gain that resource.`;
+  return div;
+}
+
 function renderExplore(){
   const root=document.createElement("div");
 
@@ -300,7 +317,6 @@ function renderExplore(){
 
   root.appendChild(row);
 
-  /* worker buttons (hidden after confirm) */
   if(!gameState.workerConfirmed){
     const btns=document.createElement("div");
     btns.className="worker-row";
@@ -315,7 +331,6 @@ function renderExplore(){
 
     root.appendChild(btns);
 
-    /* confirm + reset */
     const confirmRow=document.createElement("div");
     confirmRow.className="worker-row";
 
@@ -335,7 +350,6 @@ function renderExplore(){
     root.appendChild(confirmRow);
   }
 
-  /* movement controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
@@ -416,6 +430,10 @@ function render(){
 
   const content=document.getElementById("content");
   content.innerHTML="";
+
+  if(gameState.activeArea==="Welcome"){
+    content.appendChild(renderWelcome());
+  }
 
   if(gameState.activeArea==="Explore"){
     content.appendChild(renderExplore());
