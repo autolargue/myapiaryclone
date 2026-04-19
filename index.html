@@ -1,53 +1,135 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>RESET TEST</title>
+<title>Explore Baseline</title>
+
+<style>
+body{
+  margin:0;
+  background:#0b1020;
+  color:white;
+  font-family:Arial;
+}
+
+/* TOP BAR */
+#tabs{
+  display:flex;
+  gap:6px;
+  padding:10px;
+  background:#111827;
+}
+
+.tab{
+  padding:6px 10px;
+  background:#1f2937;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:12px;
+}
+
+.tab.active{
+  background:#2563eb;
+}
+
+/* GRID */
+#grid{
+  display:grid;
+  grid-template-columns:repeat(4,90px);
+  gap:4px;
+  justify-content:center;
+  margin-top:20px;
+}
+
+.tile{
+  width:90px;
+  height:90px;
+  border:1px solid rgba(255,255,255,0.2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  background:rgba(255,255,255,0.05);
+}
+
+#log{
+  text-align:center;
+  margin-top:10px;
+  font-size:12px;
+  opacity:0.9;
+}
+</style>
 </head>
 
 <body>
 
-<h2>IF YOU SEE THIS, FILE IS CORRECT</h2>
-
 <div id="tabs"></div>
-<div id="content"></div>
+<div id="grid"></div>
+<div id="log"></div>
 
 <script>
 
-const state={
- grid:Array(16).fill(null).map(()=>({planet:null}))
+/* ---------------- STATE ---------------- */
+
+const state = {
+  activeTab: "Explore",
+  grid: Array(16).fill(null).map(()=>({planet:null}))
 };
 
+/* ---------------- TABS ---------------- */
+
+const tabs = ["Explore","Grow","Convert","Research"];
+
 function renderTabs(){
- document.getElementById("tabs").innerHTML=
-  "<button>Explore</button><button>Grow</button>";
+  const el = document.getElementById("tabs");
+  el.innerHTML="";
+
+  tabs.forEach(t=>{
+    const d=document.createElement("div");
+    d.className="tab"+(t===state.activeTab?" active":"");
+    d.innerText=t;
+    el.appendChild(d);
+  });
+}
+
+/* ---------------- GRID ---------------- */
+
+function clickTile(i){
+  const cell = state.grid[i];
+
+  if(!cell.planet){
+    cell.planet = { name: "Planet "+i };
+    document.getElementById("log").innerText =
+      "Discovered " + cell.planet.name;
+  } else {
+    document.getElementById("log").innerText =
+      "Visited " + cell.planet.name;
+  }
+
+  renderGrid();
 }
 
 function renderGrid(){
- let html="<div style='display:grid;grid-template-columns:repeat(4,80px);gap:4px'>";
- for(let i=0;i<16;i++){
-  const cell=state.grid[i];
-  html+=`
-   <div style="width:80px;height:80px;border:1px solid black;display:flex;align-items:center;justify-content:center"
-   onclick="clickTile(${i})">
-   ${cell.planet?cell.planet.name:"⭐"}
-   </div>
-  `;
- }
- html+="</div>";
- return html;
+  const g=document.getElementById("grid");
+  g.innerHTML="";
+
+  state.grid.forEach((cell,i)=>{
+    const t=document.createElement("div");
+    t.className="tile";
+
+    t.innerText = cell.planet ? cell.planet.name : "⭐";
+
+    t.onclick = ()=>clickTile(i);
+
+    g.appendChild(t);
+  });
 }
 
-function clickTile(i){
- if(!state.grid[i].planet){
-  state.grid[i].planet={name:"P"+i};
- }
- render();
-}
+/* ---------------- RENDER ---------------- */
 
 function render(){
- renderTabs();
- document.getElementById("content").innerHTML=renderGrid();
+  renderTabs();
+  renderGrid();
 }
 
 render();
