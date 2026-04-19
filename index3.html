@@ -414,12 +414,9 @@ function renderPlayerPanel(){
   const p=currentPlayerObj();
   document.getElementById("playerPanel").innerHTML=`
     <b>Player ${gameState.currentPlayer}</b><br><br>
-    Pollen: ${p.pollen}<br>
-    Water: ${p.water}<br>
-    Fiber: ${p.fiber}<br><br>
-    Victory Points: ${p.victoryPoints}<br>
-    Queen Favor: ${p.queenFavor}<br>
-    Wax: ${p.wax}<br>
+    Pollen: ${p.pollen}&nbsp;&nbsp;Water: ${p.water}&nbsp;&nbsp;Fiber: ${p.fiber}<br><br>
+    Wax: ${p.wax}&nbsp;&nbsp;Honey: ${p.honey}<br><hr>
+    Victory Points: ${p.victoryPoints}&nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor}<br>
     Research Cards: ${p.researchCards}
   `;
 }
