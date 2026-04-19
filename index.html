@@ -149,7 +149,12 @@ const SIZE=4;
 const AREAS=["Explore","Grow","Convert","Research","Carve","Hibernation"];
 const RES=["pollen","fiber","water"];
 
-/* PLANETS */
+/* ===== SAFE HELPERS ===== */
+function deepClone(obj){
+  return JSON.parse(JSON.stringify(obj));
+}
+
+/* ===== PLANETS ===== */
 function empty(){return {resource:null,filled:false,predefined:false};}
 function basic(r){return {resource:r,filled:true,predefined:true};}
 
@@ -172,17 +177,24 @@ const PLANETS=[
 ];
 
 function drawPlanet(){
- return structuredClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]);
+  const p = deepClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]);
+  if(!p.slots) p.slots=[];
+  return p;
 }
 
 function fmt(r){
- return r==="pollen"?"P":r==="fiber"?"F":"W";
-}
-function renderSlots(p){
- return p.slots.map(s=>s.filled?`[${fmt(s.resource)}]`:"[ ]`).join("  ");
+  return r==="pollen"?"P":r==="fiber"?"F":r==="water"?"W":"?";
 }
 
-/* STATE */
+function renderSlots(p){
+  if(!p || !Array.isArray(p.slots)) return "";
+  return p.slots.map(s=>{
+    if(!s || !s.filled) return "[ ]";
+    return `[${fmt(s.resource)}]`;
+  }).join("  ");
+}
+
+/* ===== STATE ===== */
 const gameState={
  currentPlayer:1,
  activeArea:"Explore",
@@ -202,7 +214,7 @@ const gameState={
  pendingChoice:null
 };
 
-/* WORKERS */
+/* ===== WORKERS ===== */
 function selectWorker(s){ gameState.selectedWorker=s; render(); }
 
 function confirmWorker(){
@@ -225,7 +237,7 @@ function totalStrength(){
  return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
 }
 
-/* MOVEMENT */
+/* ===== MOVEMENT ===== */
 function coords(i){return {x:i%4,y:Math.floor(i/4)};}
 function adj(a,b){
  const A=coords(a),B=coords(b);
@@ -289,7 +301,7 @@ function endMovement(){
  });
 }
 
-/* EXPLORE */
+/* ===== EXPLORE ===== */
 function resolveExplore(i){
  const cell=gameState.grid[i];
  gameState.lastGain={token:null,planet:[],four:false};
@@ -298,7 +310,7 @@ function resolveExplore(i){
   cell.planet=drawPlanet();
 
   const first=cell.planet.slots[0];
-  if(first.filled && first.predefined){
+  if(first && first.filled && first.predefined){
    gameState.lastGain.planet.push(first.resource);
   }
 
@@ -312,7 +324,7 @@ function resolveExplore(i){
 
  } else {
   cell.planet.slots.forEach(s=>{
-   if(s.filled) gameState.lastGain.planet.push(s.resource);
+   if(s && s.filled) gameState.lastGain.planet.push(s.resource);
   });
   endTurn();
  }
@@ -325,30 +337,31 @@ function resolveExplore(i){
  cell.visited=true;
 }
 
-/* CHOICE */
+/* ===== CHOICE ===== */
 function chooseResource(res){
  const {index}=gameState.pendingChoice;
  const cell=gameState.grid[index];
 
  const slot=cell.planet.slots.find(s=>!s.filled);
- slot.resource=res;
- slot.filled=true;
-
- gameState.lastGain.planet.push(res);
+ if(slot){
+  slot.resource=res;
+  slot.filled=true;
+  gameState.lastGain.planet.push(res);
+ }
 
  gameState.pendingChoice=null;
  endTurn();
  render();
 }
 
-/* TURN */
+/* ===== TURN ===== */
 function endTurn(){
  gameState.currentPlayer++;
  if(gameState.currentPlayer>5) gameState.currentPlayer=1;
  gameState.workerPlacedThisTurn=false;
 }
 
-/* RENDER */
+/* ===== RENDER ===== */
 function renderTabs(){
  const t=document.getElementById("tabs");
  t.innerHTML="";
@@ -364,7 +377,6 @@ function renderTabs(){
 function renderExplore(){
  const root=document.createElement("div");
 
- /* workers */
  const row=document.createElement("div");
  row.className="worker-row";
 
@@ -378,10 +390,8 @@ function renderExplore(){
  const t=document.createElement("div");
  t.innerText="Total strength = "+totalStrength();
  row.appendChild(t);
-
  root.appendChild(row);
 
- /* selection */
  if(!gameState.workerPlacedThisTurn){
   const sel=document.createElement("div");
   sel.className="worker-row";
@@ -402,7 +412,6 @@ function renderExplore(){
   root.appendChild(sel);
  }
 
- /* controls */
  const ctrl=document.createElement("div");
  ctrl.className="worker-row";
 
@@ -439,7 +448,6 @@ function renderExplore(){
   root.appendChild(d);
  }
 
- /* grid */
  const grid=document.createElement("div");
  grid.id="grid";
 
@@ -454,7 +462,7 @@ function renderExplore(){
   if(gameState.movement.path.includes(i)) tile.classList.add("path");
   if(v.includes(i)) tile.classList.add("valid");
 
-  if(cell.planet && cell.revealed){
+  if(cell.planet && cell.revealed && cell.planet.slots){
    tile.innerHTML=`
     <div class="slots">${renderSlots(cell.planet)}</div>
     <div class="planet-art"></div>
@@ -478,7 +486,6 @@ function renderExplore(){
 
  root.appendChild(grid);
 
- /* choice */
  if(gameState.pendingChoice){
   const box=document.createElement("div");
   box.id="choiceBox";
@@ -494,7 +501,6 @@ function renderExplore(){
   root.appendChild(box);
  }
 
- /* gains */
  const gains=document.createElement("div");
  gains.id="gains";
 
