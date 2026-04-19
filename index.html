@@ -13,7 +13,7 @@ body{
   display:flex;
 }
 
-/* LEFT PANEL */
+/* LEFT */
 #leftPanel{
   width:240px;
   background:#111827;
@@ -22,7 +22,7 @@ body{
   border-right:1px solid #333;
 }
 
-/* CENTER AREA */
+/* CENTER */
 #main{
   flex:1;
   display:flex;
@@ -42,11 +42,10 @@ body{
   background:#1f2937;
   border-radius:4px;
   cursor:pointer;
-  font-size:12px;
 }
 .tab.active{background:#2563eb;}
 
-/* CONTENT AREA */
+/* GRID AREA */
 #content{
   flex:1;
   display:flex;
@@ -55,13 +54,13 @@ body{
   padding-top:10px;
 }
 
-/* GRID */
 #grid{
   display:grid;
   grid-template-columns:repeat(4,90px);
   gap:4px;
 }
 
+/* TILE */
 .tile{
   width:90px;
   height:90px;
@@ -70,7 +69,6 @@ body{
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:11px;
 }
 
 /* RIGHT PANEL */
@@ -78,39 +76,38 @@ body{
   width:260px;
   background:#111827;
   padding:12px;
-  font-size:12px;
   border-left:1px solid #333;
 }
 
-/* PLAYER BOX */
+/* PLAYER */
 .playerBox{
-  line-height:1.6;
+  font-size:12px;
+  line-height:1.5;
   background:#0f172a;
   padding:10px;
   border-radius:6px;
 }
-
-button{margin:3px;}
 </style>
 </head>
 
 <body>
 
-<!-- LEFT -->
 <div id="leftPanel">
-<b>Explore Rules</b><br><br>
-Move ship, explore planets, fill slots.<br>
-Gain resources and future upgrades.<br><br>
-Click tiles to interact.
+<b>Explore System</b><br><br>
+
+✔ Move ship across grid<br>
+✔ Discover planets<br>
+✔ Fill resource slots<br><br>
+
+Workers generate movement strength.<br>
+Empty slots require resource choice.
 </div>
 
-<!-- CENTER -->
 <div id="main">
   <div id="tabs"></div>
   <div id="content"></div>
 </div>
 
-<!-- RIGHT -->
 <div id="rightPanel">
   <b>Player State</b>
   <div id="playerState"></div>
@@ -118,8 +115,7 @@ Click tiles to interact.
 
 <script>
 
-/* ===== STATE ===== */
-const RES=["pollen","fiber","water"];
+/* ================= STATE ================= */
 
 function createPlayer(id){
  return {
@@ -133,15 +129,16 @@ function createPlayer(id){
 
 const gameState={
  players:[createPlayer(1),createPlayer(2)],
- currentPlayerIndex:0,
+ currentPlayer:0,
  grid:Array(16).fill(null).map(()=>({planet:null,revealed:false}))
 };
 
 function currentPlayer(){
- return gameState.players[gameState.currentPlayerIndex];
+ return gameState.players[gameState.currentPlayer];
 }
 
-/* ===== TABS ===== */
+/* ================= TABS ================= */
+
 const AREAS=["Explore","Grow","Convert","Research"];
 
 function renderTabs(){
@@ -155,7 +152,21 @@ function renderTabs(){
  });
 }
 
-/* ===== GRID ===== */
+/* ================= GRID ================= */
+
+function resolveExplore(i){
+ const cell=gameState.grid[i];
+ if(!cell.planet){
+  cell.planet={
+   name:"Planet "+i,
+   slots:[]
+  };
+ }
+
+ cell.revealed=true;
+ render();
+}
+
 function renderGrid(){
  const grid=document.createElement("div");
  grid.id="grid";
@@ -167,13 +178,7 @@ function renderGrid(){
   const cell=gameState.grid[i];
   tile.innerText = cell.planet ? "🌍" : "⭐";
 
-  tile.onclick=()=>{
-    if(!cell.planet){
-      cell.planet={name:"Planet",slots:[]};
-    }
-    cell.revealed=true;
-    render();
-  };
+  tile.onclick=()=>resolveExplore(i);
 
   grid.appendChild(tile);
  }
@@ -181,9 +186,11 @@ function renderGrid(){
  return grid;
 }
 
-/* ===== PLAYER PANEL ===== */
+/* ================= PLAYER PANEL ================= */
+
 function renderPlayer(){
  const p=currentPlayer();
+
  document.getElementById("playerState").innerHTML=`
  Player ${p.id}<br><br>
 
@@ -192,17 +199,16 @@ function renderPlayer(){
  F:${p.resources.fiber}<br>
  W:${p.resources.water}<br><br>
 
- Hibernation: ${p.hibernationTokens}<br><br>
+ Hibernation Tokens: ${p.hibernationTokens}<br><br>
 
- Active Pool:<br>
- ${JSON.stringify(p.activePool)}<br><br>
+ Active Pool: ${JSON.stringify(p.activePool)}<br><br>
 
- Landing Area:<br>
- ${JSON.stringify(p.landingArea)}
+ Landing Area: ${JSON.stringify(p.landingArea)}
  `;
 }
 
-/* ===== MAIN RENDER ===== */
+/* ================= MAIN RENDER ================= */
+
 function render(){
  renderTabs();
 
