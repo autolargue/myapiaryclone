@@ -10,8 +10,25 @@ body{
   background:#0b1020;
   color:white;
   font-family:Arial;
+  display:flex;
 }
 
+/* LEFT PANEL */
+#leftPanel{
+  width:260px;
+  background:#111827;
+  padding:15px;
+  font-size:13px;
+  line-height:1.6;
+  border-right:1px solid #333;
+}
+
+/* MAIN */
+#main{
+  flex:1;
+}
+
+/* tabs */
 #tabs{
   display:flex;
   gap:6px;
@@ -36,6 +53,7 @@ body{
   padding:8px;
 }
 
+/* workers */
 .worker-row{
   display:flex;
   justify-content:center;
@@ -57,6 +75,7 @@ body{
   background:#2563eb;
 }
 
+/* grid */
 #grid{
   display:grid;
   grid-template-columns:repeat(4,90px);
@@ -78,18 +97,10 @@ body{
   position:relative;
 }
 
-.valid{
-  background:rgba(0,255,0,0.25);
-}
+.valid{ background:rgba(0,255,0,0.25); }
+.path{ background:rgba(255,255,0,0.25); }
 
-.path{
-  background:rgba(255,255,0,0.25);
-}
-
-.slots{
-  font-size:9px;
-  font-family:monospace;
-}
+.slots{ font-size:9px; font-family:monospace; }
 
 .planet-art{
   width:28px;
@@ -99,10 +110,7 @@ body{
   margin-left:5px;
 }
 
-.name{
-  font-size:9px;
-  margin-left:5px;
-}
+.name{ font-size:9px; margin-left:5px; }
 
 .sep{
   width:70%;
@@ -112,11 +120,9 @@ body{
   margin-left:5px;
 }
 
-.bonus{
-  font-size:8px;
-  margin-left:5px;
-}
+.bonus{ font-size:8px; margin-left:5px; }
 
+/* ship */
 .ship{
   position:absolute;
   top:30px;
@@ -139,20 +145,34 @@ body{
 }
 </style>
 </head>
+
 <body>
 
+<div id="leftPanel">
+<b>Explore Instructions</b><br><br>
+
+1- Pick a worker to place in the left slot. If you place a 4-strength worker and the final sector has a 4-strength power, you will gain that reward.<br><br>
+
+2- Confirm the worker placement then click on the Start movement button.<br><br>
+
+3- Click on End movement button to confirm. The rewards are shown at the bottom of the grid.
+</div>
+
+<div id="main">
 <div id="tabs"></div>
 <div id="info"></div>
 <div id="content"></div>
+</div>
 
 <script>
-const SIZE = 4;
-const AREAS = ["Explore","Grow","Convert","Research","Carve","Hibernation"];
+const SIZE=4;
+const AREAS=["Explore","Grow","Convert","Research","Carve","Hibernation"];
 
-function empty(){ return {resource:null,filled:false,predefined:false}; }
-function basic(r){ return {resource:r,filled:true,predefined:true}; }
+/* PLANETS */
+function empty(){return {resource:null,filled:false,predefined:false};}
+function basic(r){return {resource:r,filled:true,predefined:true};}
 
-const PLANETS = [
+const PLANETS=[
  {name:"Aurelion",slots:[empty()],hasFourStrength:false},
  {name:"Brontes",slots:[empty()],hasFourStrength:false},
  {name:"Cyris",slots:[empty()],hasFourStrength:false},
@@ -170,384 +190,325 @@ const PLANETS = [
  {name:"Orivon",slots:[basic("fiber"),empty(),empty()],hasFourStrength:false}
 ];
 
-const EXPLORE_TOKENS = [
- {type:"vp1"},
- {type:"vp2"},
- {type:"pollen"},
- {type:"water"},
- {type:"fiber"},
- {type:"wild"},
- {type:"wax"},
- {type:"honey"},
- {type:"card"},
- {type:"queen"},
- {type:"pollen"},
- {type:"water"},
- {type:"fiber"},
- {type:"wild"},
- {type:"card"}
-];
+const TOKENS = new Array(15).fill({type:"reward"});
 
-function drawPlanet(){
-  return structuredClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]);
-}
-
-function drawToken(){
-  return structuredClone(EXPLORE_TOKENS[Math.floor(Math.random()*EXPLORE_TOKENS.length)]);
-}
+function drawPlanet(){ return structuredClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]); }
+function drawToken(){ return structuredClone(TOKENS[Math.floor(Math.random()*TOKENS.length)]); }
 
 function fmt(r){
-  return r==="pollen"?"P" : r==="fiber"?"F" : r==="water"?"W" : "?";
+ return r==="pollen"?"P":r==="fiber"?"F":r==="water"?"W":"?";
+}
+function renderSlots(p){
+ return p.slots.map(s=>s.filled?`[${fmt(s.resource)}]`:"[ ]").join("  ");
 }
 
-function renderSlots(planet){
-  return planet.slots.map(s => s.filled ? `[${fmt(s.resource)}]` : `[ ]`).join("  ");
-}
+/* STATE */
+const gameState={
+ currentPlayer:1,
+ activeArea:"Explore",
+ queenPosition:15,
 
-const gameState = {
-  currentPlayer:1,
-  activeArea:"Explore",
-  queenPosition:15,
+ grid:Array(16).fill(null).map(()=>({planet:null,revealed:false,visited:false})),
 
-  grid:Array(16).fill(null).map(()=>({
-    planet:null,
-    revealed:false,
-    visited:false
-  })),
+ exploreWorkers:[null,null],
+ selectedWorker:null,
+ workerPlacedThisTurn:false,
+ lastPlacedWorker:null,
 
-  exploreWorkers:[null,null],
-  selectedWorker:null,
-  workerPlacedThisTurn:false,
+ movement:{active:false,path:[],maxSteps:0},
 
-  movement:{
-    active:false,
-    path:[],
-    maxSteps:0
-  },
-
-  lastGain:{
-    token:null,
-    planet:[]
-  }
+ lastGain:{token:null,planet:[],four:false}
 };
 
-function getCoords(i){
-  return {x:i%SIZE,y:Math.floor(i/SIZE)};
-}
-
-function isAdjacent(a,b){
-  const A=getCoords(a);
-  const B=getCoords(b);
-  return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
-}
-
-function getTotalStrength(){
-  return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
-}
-
-function selectWorker(strength){
-  gameState.selectedWorker=strength;
-  render();
-}
+/* WORKERS */
+function selectWorker(s){ gameState.selectedWorker=s; render(); }
 
 function confirmWorker(){
-  if(gameState.selectedWorker===null) return;
+ if(gameState.selectedWorker===null) return;
 
-  const s=gameState.selectedWorker;
-  const [left,right]=gameState.exploreWorkers;
+ const s=gameState.selectedWorker;
+ const [l,r]=gameState.exploreWorkers;
 
-  if(left===null){
-    gameState.exploreWorkers=[s,null];
-  }else if(right===null){
-    gameState.exploreWorkers=[s,left];
-  }else{
-    gameState.exploreWorkers=[s,left];
-  }
+ if(l===null) gameState.exploreWorkers=[s,null];
+ else if(r===null) gameState.exploreWorkers=[s,l];
+ else gameState.exploreWorkers=[s,l];
 
-  gameState.selectedWorker=null;
-  gameState.workerPlacedThisTurn=true;
-  render();
+ gameState.lastPlacedWorker=s;
+ gameState.selectedWorker=null;
+ gameState.workerPlacedThisTurn=true;
+ render();
 }
 
-function remainingMoves(){
-  return gameState.movement.maxSteps - (gameState.movement.path.length-1);
+function totalStrength(){
+ return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
 }
 
-function validMoves(){
-  if(!gameState.movement.active || remainingMoves()<=0) return [];
+/* MOVEMENT */
+function coords(i){ return {x:i%4,y:Math.floor(i/4)}; }
+function adj(a,b){
+ const A=coords(a),B=coords(b);
+ return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
+}
 
-  const path=gameState.movement.path;
-  const last=path[path.length-1];
+function remaining(){
+ return gameState.movement.maxSteps-(gameState.movement.path.length-1);
+}
 
-  return [last+1,last-1,last+4,last-4]
-    .filter(i=>i>=0 && i<16)
-    .filter(i=>isAdjacent(last,i))
-    .filter(i=>!path.includes(i));
+function valid(){
+ if(!gameState.movement.active || remaining()<=0) return [];
+ const path=gameState.movement.path;
+ const last=path[path.length-1];
+ return [last+1,last-1,last+4,last-4]
+  .filter(i=>i>=0&&i<16)
+  .filter(i=>adj(last,i))
+  .filter(i=>!path.includes(i));
 }
 
 function startMovement(){
-  const total=getTotalStrength();
-  if(total===0) return;
-
-  gameState.movement={
-    active:true,
-    path:[gameState.queenPosition],
-    maxSteps:total
-  };
-
-  render();
+ const t=totalStrength();
+ if(!t) return;
+ gameState.movement={active:true,path:[gameState.queenPosition],maxSteps:t};
+ render();
 }
 
 function resetMovement(){
-  gameState.movement.path=[gameState.queenPosition];
-  render();
+ gameState.movement.path=[gameState.queenPosition];
+ render();
 }
 
 function clickTile(i){
-  if(!validMoves().includes(i)) return;
-  gameState.movement.path.push(i);
-  render();
+ if(!valid().includes(i)) return;
+ gameState.movement.path.push(i);
+ render();
 }
 
-function animateMovement(path,done){
-  let step=1;
-
-  function next(){
-    if(step>=path.length){
-      done();
-      return;
-    }
-
-    gameState.queenPosition=path[step];
-    render();
-
-    step++;
-    setTimeout(next,200);
-  }
-
-  next();
+function animate(path,done){
+ let s=1;
+ function next(){
+  if(s>=path.length){done();return;}
+  gameState.queenPosition=path[s];
+  render();
+  s++; setTimeout(next,200);
+ }
+ next();
 }
 
 function endMovement(){
-  const path=[...gameState.movement.path];
-  const start=path[0];
+ const path=[...gameState.movement.path];
+ const start=path[0];
+ gameState.grid[start].visited=true;
+ gameState.movement.active=false;
 
-  gameState.grid[start].visited=true;
-  gameState.movement.active=false;
-
-  animateMovement(path,()=>{
-    resolveExplore(path[path.length-1]);
-    gameState.movement.path=[];
-    render();
-  });
+ animate(path,()=>{
+  resolveExplore(path[path.length-1]);
+  gameState.movement.path=[];
+  render();
+ });
 }
 
-function resolveExplore(index){
-  const cell=gameState.grid[index];
+/* EXPLORE */
+function resolveExplore(i){
+ const cell=gameState.grid[i];
+ gameState.lastGain={token:null,planet:[],four:false};
 
-  gameState.lastGain={
-    token:null,
-    planet:[]
-  };
+ if(!cell.planet){
+  gameState.lastGain.token=drawToken();
+  cell.planet=drawPlanet();
 
-  if(!cell.planet){
-    gameState.lastGain.token=drawToken();
-
-    cell.planet=drawPlanet();
-
-    const first=cell.planet.slots[0];
-    if(first.filled && first.predefined){
-      gameState.lastGain.planet.push(first.resource);
-    }
-
-    const emptySlot=cell.planet.slots.find(s=>!s.filled);
-    if(emptySlot){
-      const res=["pollen","fiber","water"][Math.floor(Math.random()*3)];
-      emptySlot.resource=res;
-      emptySlot.filled=true;
-      gameState.lastGain.planet.push(res);
-    }
-  }else{
-    cell.planet.slots.forEach(slot=>{
-      if(slot.filled){
-        gameState.lastGain.planet.push(slot.resource);
-      }
-    });
+  const first=cell.planet.slots[0];
+  if(first.filled && first.predefined){
+   gameState.lastGain.planet.push(first.resource);
   }
 
-  cell.revealed=true;
-  cell.visited=true;
+  const empty=cell.planet.slots.find(s=>!s.filled);
+  if(empty){
+   const r=["pollen","fiber","water"][Math.floor(Math.random()*3)];
+   empty.resource=r;
+   empty.filled=true;
+   gameState.lastGain.planet.push(r);
+  }
 
-  endTurn();
+ } else {
+  cell.planet.slots.forEach(s=>{
+   if(s.filled) gameState.lastGain.planet.push(s.resource);
+  });
+ }
+
+ if(cell.planet.hasFourStrength && gameState.lastPlacedWorker===4){
+  gameState.lastGain.four=true;
+ }
+
+ cell.revealed=true;
+ cell.visited=true;
+
+ endTurn();
 }
 
 function endTurn(){
-  gameState.currentPlayer++;
-  if(gameState.currentPlayer>5) gameState.currentPlayer=1;
-
-  gameState.workerPlacedThisTurn=false;
+ gameState.currentPlayer++;
+ if(gameState.currentPlayer>5) gameState.currentPlayer=1;
+ gameState.workerPlacedThisTurn=false;
 }
 
+/* RENDER */
 function renderTabs(){
-  const tabs=document.getElementById("tabs");
-  tabs.innerHTML="";
-
-  AREAS.forEach(area=>{
-    const div=document.createElement("div");
-    div.className="tab"+(gameState.activeArea===area?" active":"");
-    div.innerText=area;
-    div.onclick=()=>{
-      gameState.activeArea=area;
-      render();
-    };
-    tabs.appendChild(div);
-  });
+ const t=document.getElementById("tabs");
+ t.innerHTML="";
+ AREAS.forEach(a=>{
+  const d=document.createElement("div");
+  d.className="tab"+(a===gameState.activeArea?" active":"");
+  d.innerText=a;
+  d.onclick=()=>{gameState.activeArea=a;render();};
+  t.appendChild(d);
+ });
 }
 
 function renderExplore(){
-  const root=document.createElement("div");
+ const root=document.createElement("div");
 
-  const workerRow=document.createElement("div");
-  workerRow.className="worker-row";
+ const row=document.createElement("div");
+ row.className="worker-row";
 
-  gameState.exploreWorkers.forEach(w=>{
-    const slot=document.createElement("div");
-    slot.className="worker-slot";
-    slot.innerText=w ? "🐝 "+w : "Empty";
-    workerRow.appendChild(slot);
+ gameState.exploreWorkers.forEach(w=>{
+  const b=document.createElement("div");
+  b.className="worker-slot";
+  b.innerText=w?("🐝 "+w):"Empty";
+  row.appendChild(b);
+ });
+
+ const t=document.createElement("div");
+ t.innerText="Total strength = "+totalStrength();
+ row.appendChild(t);
+ root.appendChild(row);
+
+ if(!gameState.workerPlacedThisTurn){
+  const sel=document.createElement("div");
+  sel.className="worker-row";
+
+  [1,2,3,4].forEach(s=>{
+   const b=document.createElement("button");
+   b.innerText="W"+s;
+   if(gameState.selectedWorker===s) b.classList.add("selected");
+   b.onclick=()=>selectWorker(s);
+   sel.appendChild(b);
   });
 
-  const total=document.createElement("div");
-  total.innerText="Total strength = "+getTotalStrength();
-  workerRow.appendChild(total);
+  const c=document.createElement("button");
+  c.innerText="Confirm Worker";
+  c.onclick=confirmWorker;
+  sel.appendChild(c);
 
-  root.appendChild(workerRow);
+  root.appendChild(sel);
+ }
 
-  if(!gameState.workerPlacedThisTurn){
-    const selectRow=document.createElement("div");
-    selectRow.className="worker-row";
+ const ctrl=document.createElement("div");
+ ctrl.className="worker-row";
 
-    [1,2,3,4].forEach(s=>{
-      const btn=document.createElement("button");
-      btn.innerText="W"+s;
-      if(gameState.selectedWorker===s) btn.classList.add("selected");
-      btn.onclick=()=>selectWorker(s);
-      selectRow.appendChild(btn);
-    });
+ if(gameState.workerPlacedThisTurn && !gameState.movement.active){
+  const s=document.createElement("button");
+  s.innerText="Start movement";
+  s.onclick=startMovement;
+  ctrl.appendChild(s);
+ }
 
-    const confirm=document.createElement("button");
-    confirm.innerText="Confirm Worker";
-    confirm.onclick=confirmWorker;
-    selectRow.appendChild(confirm);
+ if(gameState.movement.active){
+  const e=document.createElement("button");
+  e.innerText="End movement";
+  e.onclick=endMovement;
 
-    root.appendChild(selectRow);
+  const r=document.createElement("button");
+  r.innerText="Reset";
+  r.onclick=resetMovement;
+
+  ctrl.appendChild(e);
+  ctrl.appendChild(r);
+ }
+
+ root.appendChild(ctrl);
+
+ if(gameState.movement.active){
+  const m=document.createElement("div");
+  m.style.textAlign="center";
+  m.innerText="Moves remaining: "+remaining();
+  root.appendChild(m);
+
+  const d=document.createElement("div");
+  d.className="divider";
+  root.appendChild(d);
+ }
+
+ const grid=document.createElement("div");
+ grid.id="grid";
+
+ const v=valid();
+
+ for(let i=0;i<16;i++){
+  const cell=gameState.grid[i];
+  const tile=document.createElement("div");
+  tile.className="tile";
+  tile.onclick=()=>clickTile(i);
+
+  if(gameState.movement.path.includes(i)) tile.classList.add("path");
+  if(v.includes(i)) tile.classList.add("valid");
+
+  if(cell.planet && cell.revealed){
+   tile.innerHTML=`
+    <div class="slots">${renderSlots(cell.planet)}</div>
+    <div class="planet-art"></div>
+    <div class="name">${cell.planet.name}</div>
+    <div class="sep"></div>
+    <div class="bonus">${cell.planet.hasFourStrength?"4-strength power":""}</div>
+   `;
+  } else if(!cell.visited){
+   tile.innerText="⭐";
   }
 
-  const controlRow=document.createElement("div");
-  controlRow.className="worker-row";
-
-  if(gameState.workerPlacedThisTurn && !gameState.movement.active){
-    const start=document.createElement("button");
-    start.innerText="Start movement";
-    start.onclick=startMovement;
-    controlRow.appendChild(start);
+  if(i===gameState.queenPosition){
+   const ship=document.createElement("div");
+   ship.className="ship";
+   ship.innerText="🚀";
+   tile.appendChild(ship);
   }
 
-  if(gameState.movement.active){
-    const end=document.createElement("button");
-    end.innerText="End movement";
-    end.onclick=endMovement;
+  grid.appendChild(tile);
+ }
 
-    const reset=document.createElement("button");
-    reset.innerText="Reset";
-    reset.onclick=resetMovement;
+ root.appendChild(grid);
 
-    controlRow.appendChild(end);
-    controlRow.appendChild(reset);
+ const gains=document.createElement("div");
+ gains.id="gains";
 
-    const moves=document.createElement("div");
-    moves.innerText="Moves remaining: "+remainingMoves();
-    root.appendChild(controlRow);
+ if(gameState.lastGain.token){
+  const l1=document.createElement("div");
+  l1.innerText="Explore token: reward";
+  gains.appendChild(l1);
+ }
 
-    const divider=document.createElement("div");
-    divider.className="divider";
-    root.appendChild(moves);
-    root.appendChild(divider);
-  }else{
-    root.appendChild(controlRow);
-  }
+ if(gameState.lastGain.planet.length){
+  const l2=document.createElement("div");
+  l2.innerText="Planet reward: "+gameState.lastGain.planet.join(", ");
+  gains.appendChild(l2);
+ }
 
-  const grid=document.createElement("div");
-  grid.id="grid";
+ if(gameState.lastGain.four){
+  const l3=document.createElement("div");
+  l3.innerText="4-strength power";
+  gains.appendChild(l3);
+ }
 
-  const valid=validMoves();
+ root.appendChild(gains);
 
-  for(let i=0;i<16;i++){
-    const cell=gameState.grid[i];
-    const tile=document.createElement("div");
-    tile.className="tile";
-    tile.onclick=()=>clickTile(i);
-
-    if(gameState.movement.path.includes(i)) tile.classList.add("path");
-    if(valid.includes(i)) tile.classList.add("valid");
-
-    if(cell.planet && cell.revealed){
-      tile.innerHTML=`
-        <div class="slots">${renderSlots(cell.planet)}</div>
-        <div class="planet-art"></div>
-        <div class="name">${cell.planet.name}</div>
-        <div class="sep"></div>
-        <div class="bonus">${cell.planet.hasFourStrength ? "4-strength power" : ""}</div>
-      `;
-    }else if(!cell.visited){
-      tile.innerText="⭐";
-    }
-
-    if(i===gameState.queenPosition){
-      const ship=document.createElement("div");
-      ship.className="ship";
-      ship.innerText="🚀";
-      tile.appendChild(ship);
-    }
-
-    grid.appendChild(tile);
-  }
-
-  root.appendChild(grid);
-
-  const gains=document.createElement("div");
-  gains.id="gains";
-
-  if(gameState.lastGain.token){
-    const line1=document.createElement("div");
-    line1.innerText="Explore token: reward";
-    gains.appendChild(line1);
-  }
-
-  if(gameState.lastGain.planet.length){
-    const line2=document.createElement("div");
-    line2.innerText="Planet reward: "+gameState.lastGain.planet.join(", ");
-    gains.appendChild(line2);
-  }
-
-  root.appendChild(gains);
-
-  return root;
+ return root;
 }
 
 function render(){
-  renderTabs();
-
-  const content=document.getElementById("content");
-  content.innerHTML="";
-
-  if(gameState.activeArea==="Explore"){
-    content.appendChild(renderExplore());
-  }else{
-    content.innerHTML="<div style='text-align:center;padding:30px;'>"+gameState.activeArea+" not implemented yet</div>";
-  }
-
-  document.getElementById("info").innerText="Player "+gameState.currentPlayer;
+ renderTabs();
+ const c=document.getElementById("content");
+ c.innerHTML="";
+ if(gameState.activeArea==="Explore"){
+  c.appendChild(renderExplore());
+ }
+ document.getElementById("info").innerText="Player "+gameState.currentPlayer;
 }
 
 render();
