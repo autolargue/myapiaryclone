@@ -1,34 +1,575 @@
-<!-- ONLY showing the FIXED part to avoid another full reset -->
-<script>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Explore Prototype</title>
 
-/* ===== FIXED END MOVEMENT ===== */
-function endMovement(){
-  const path=[...gameState.movement.path];
+<style>
+body { margin:0; background:#0b1020; font-family:Arial; color:white; display:flex; }
 
-  gameState.movement.active=false;
+#main { flex:1; }
 
-  let step=1;
+#tabs { display:flex; gap:5px; padding:10px; background:#111827; }
+.tab { padding:6px 10px; background:#1f2937; cursor:pointer; border-radius:4px; font-size:12px; }
+.tab.active { background:#2563eb; }
 
-  function anim(){
-    if(step>=path.length){
-      const final = path[path.length-1];
+#info { text-align:center; padding:8px; }
 
-      // ✅ CRITICAL FIX: resolve BEFORE render
-      resolveExplore(final);
-
-      // ✅ cleanup AFTER resolve
-      gameState.movement.path=[];
-
-      render();
-      return;
-    }
-
-    gameState.queenPosition=path[step++];
-    render();
-    setTimeout(anim,150);
-  }
-
-  anim();
+.worker-row {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  margin:10px;
 }
 
+.worker-slot {
+  width:80px;
+  height:40px;
+  border:1px solid white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+#grid {
+  display:grid;
+  grid-template-columns:repeat(4,90px);
+  gap:4px;
+  justify-content:center;
+}
+
+.tile {
+  width:90px; height:90px;
+  border:1px solid rgba(255,255,255,0.2);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  align-items:center;
+  background:rgba(255,255,255,0.05);
+  padding:3px;
+  box-sizing:border-box;
+  position:relative;
+}
+
+.valid { background:rgba(0,255,0,0.25); }
+.path { background:rgba(255,255,0,0.3); }
+
+.slots { font-size:9px; font-family:monospace; }
+
+.planet-art {
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #7dd3fc, #1e3a8a);
+}
+
+.name { font-size:9px; }
+.sep { width:80%; height:1px; background:white; opacity:0.3; }
+.bonus { font-size:8px; }
+
+.ship {
+  position:absolute;
+  top:2px;
+  right:4px;
+  font-size:16px;
+}
+
+.divider {
+  width:370px;
+  height:1px;
+  background:white;
+  margin:5px auto;
+}
+
+#welcome {
+  max-width:600px;
+  margin:40px auto;
+  text-align:center;
+  line-height:1.5;
+}
+
+#rewardLog{
+  text-align:center;
+  margin-top:10px;
+  font-size:12px;
+}
+
+#playerPanel {
+  width:220px;
+  background:#111827;
+  padding:10px;
+  border-left:2px solid #1f2937;
+  font-size:12px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="main">
+<div id="tabs"></div>
+<div id="info"></div>
+<div id="content"></div>
+</div>
+
+<div id="playerPanel"></div>
+
+<script>
+const SIZE=4;
+const AREAS=["Welcome","Explore","Grow","Convert","Research","Carve","Hibernation"];
+
+/* ===== PLAYERS ===== */
+const players = [createPlayer(), createPlayer()];
+
+function createPlayer(){
+  return {
+    pollen:0,
+    water:0,
+    fiber:0,
+    victoryPoints:0,
+    queenFavor:0,
+    wax:0,
+    researchCards:0
+  };
+}
+
+function currentPlayerObj(){
+  return players[gameState.currentPlayer-1];
+}
+
+/* ===== TOKENS ===== */
+const EXPLORE_TOKENS = [
+ "1 pollen","2 pollen","1 water","2 water","1 fiber","2 fiber",
+ "1 Victory Point","1 Queen Favor","2 Queen Favor","1 Wax",
+ "1 Research Card","2 Research Card","1 basic resource",
+ "1 Victory Point","1 Queen Favor"
+];
+
+function drawExploreToken(){
+  return EXPLORE_TOKENS[Math.floor(Math.random()*EXPLORE_TOKENS.length)];
+}
+
+/* ===== PLANETS ===== */
+function empty(){return {resource:null,filled:false};}
+function basic(r){return {resource:r,filled:true};}
+
+const PLANETS=[
+ {name:"Aurelion",slots:[empty()],hasFourStrength:false},
+ {name:"Demeris",slots:[basic("pollen"),empty()],hasFourStrength:true},
+ {name:"Helion",slots:[basic("pollen"),empty(),empty()],hasFourStrength:true},
+ {name:"Kryos",slots:[empty(),empty(),empty()],hasFourStrength:false}
+];
+
+function drawPlanet(){
+  return structuredClone(PLANETS[Math.floor(Math.random()*PLANETS.length)]);
+}
+
+function fullName(r){
+  return r==="pollen"?"Pollen":r==="water"?"Water":"Fiber";
+}
+
+/* ===== STATE ===== */
+const gameState={
+  currentPlayer:1,
+  activeArea:"Welcome",
+  queenPosition:15,
+
+  grid:Array(16).fill(null).map(()=>({
+    planet:null,
+    revealed:false,
+    visited:false,
+    hasToken:true
+  })),
+
+  exploreWorkers:[null,null],
+  workerPlacedThisTurn:false,
+  workerConfirmed:false,
+
+  movement:{ active:false, path:[], maxSteps:0 },
+
+  lastExploreReward:null,
+  lastPlanetReward:null,
+  lastFourStrength:null,
+
+  turnReadyToEnd:false
+};
+
+/* ===== HELPERS ===== */
+function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
+function isAdjacent(a,b){
+  const A=getCoords(a),B=getCoords(b);
+  return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
+}
+
+/* ===== REWARDS ===== */
+function applyExploreReward(text){
+  const p=currentPlayerObj();
+
+  if(text.includes("pollen")) p.pollen+=parseInt(text);
+  else if(text.includes("water")) p.water+=parseInt(text);
+  else if(text.includes("fiber")) p.fiber+=parseInt(text);
+  else if(text.includes("Victory Point")) p.victoryPoints+=parseInt(text);
+  else if(text.includes("Queen Favor")) p.queenFavor+=parseInt(text);
+  else if(text.includes("Wax")) p.wax+=1;
+  else if(text.includes("Research Card")) p.researchCards+=parseInt(text);
+  else if(text.includes("basic")){
+    const r=["pollen","water","fiber"][Math.floor(Math.random()*3)];
+    p[r]+=1;
+  }
+}
+
+/* ===== WORKERS ===== */
+function addWorker(s){
+  if(gameState.workerPlacedThisTurn || gameState.turnReadyToEnd) return;
+
+  const [l,r]=gameState.exploreWorkers;
+  if(l===null) gameState.exploreWorkers=[s,null];
+  else if(r===null) gameState.exploreWorkers=[s,l];
+  else gameState.exploreWorkers=[s,l];
+
+  gameState.workerPlacedThisTurn=true;
+  render();
+}
+
+function confirmWorker(){
+  if(!gameState.workerPlacedThisTurn) return;
+  gameState.workerConfirmed=true;
+  render();
+}
+
+function resetWorkerSelection(){
+  gameState.exploreWorkers=[null,null];
+  gameState.workerPlacedThisTurn=false;
+  gameState.workerConfirmed=false;
+  render();
+}
+
+function getTotal(){
+  return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0);
+}
+
+/* ===== MOVEMENT ===== */
+function remaining(){
+  return gameState.movement.maxSteps-(gameState.movement.path.length-1);
+}
+
+function validMoves(){
+  if(!gameState.movement.active || remaining()<=0 || gameState.turnReadyToEnd) return [];
+
+  const path=gameState.movement.path;
+  const last=path[path.length-1];
+
+  return [last+1,last-1,last+4,last-4]
+    .filter(i=>i>=0 && i<16)
+    .filter(i=>isAdjacent(last,i))
+    .filter(i=>!path.includes(i));
+}
+
+function startMovement(){
+  if(gameState.turnReadyToEnd) return;
+
+  const t=getTotal();
+  if(t===0) return;
+
+  gameState.movement={
+    active:true,
+    path:[gameState.queenPosition],
+    maxSteps:t
+  };
+  render();
+}
+
+function resetMovement(){
+  gameState.movement.path=[gameState.queenPosition];
+  render();
+}
+
+function clickCell(i){
+  if(gameState.turnReadyToEnd) return;
+  if(!validMoves().includes(i)) return;
+
+  gameState.movement.path.push(i);
+  render();
+}
+
+function animate(path,done){
+  let step=1;
+  function next(){
+    if(step>=path.length){done();return;}
+    gameState.queenPosition=path[step];
+    render();
+    step++;
+    setTimeout(next,200);
+  }
+  next();
+}
+
+function endMovement(){
+  const path=[...gameState.movement.path];
+  const start=path[0];
+
+  gameState.grid[start].visited=true;
+  gameState.movement.active=false;
+
+  animate(path,()=>{
+    const final=path[path.length-1];
+    resolveExplore(final);
+    gameState.movement.path=[];
+    render();
+  });
+}
+
+/* ===== EXPLORE ===== */
+function resolveExplore(i){
+  const cell=gameState.grid[i];
+
+  gameState.lastExploreReward=null;
+  gameState.lastPlanetReward=null;
+  gameState.lastFourStrength=null;
+
+  if(cell.hasToken){
+    const reward=drawExploreToken();
+    gameState.lastExploreReward=reward;
+    applyExploreReward(reward);
+    cell.hasToken=false;
+  }
+
+  if(!cell.planet){
+    cell.planet=drawPlanet();
+    const empty=cell.planet.slots.find(x=>!x.filled);
+    if(empty){
+      const t=["pollen","fiber","water"][Math.floor(Math.random()*3)];
+      empty.resource=t;
+      empty.filled=true;
+    }
+  }
+
+  const resources = cell.planet.slots.filter(s=>s.filled).map(s=>s.resource);
+  if(resources.length){
+    resources.forEach(r=>currentPlayerObj()[r]++);
+    gameState.lastPlanetReward = resources.map(fullName).join(" + ");
+  }
+
+  if(cell.planet.hasFourStrength && gameState.exploreWorkers[0]===4){
+    gameState.lastFourStrength="4-strength power";
+  }
+
+  cell.revealed=true;
+  cell.visited=true;
+
+  gameState.turnReadyToEnd=true;
+}
+
+/* ===== TURN ===== */
+function endTurn(){
+  gameState.currentPlayer = gameState.currentPlayer===1?2:1;
+
+  gameState.workerPlacedThisTurn=false;
+  gameState.workerConfirmed=false;
+
+  gameState.lastExploreReward=null;
+  gameState.lastPlanetReward=null;
+  gameState.lastFourStrength=null;
+}
+
+/* ===== RENDER ===== */
+function renderTabs(){
+  const t=document.getElementById("tabs");
+  t.innerHTML="";
+  AREAS.forEach(a=>{
+    const el=document.createElement("div");
+    el.className="tab"+(a===gameState.activeArea?" active":"");
+    el.innerText=a;
+    el.onclick=()=>{gameState.activeArea=a;render();};
+    t.appendChild(el);
+  });
+}
+
+function renderPlayerPanel(){
+  const p=currentPlayerObj();
+  document.getElementById("playerPanel").innerHTML=`
+    <b>Player ${gameState.currentPlayer}</b><br><br>
+    Pollen: ${p.pollen}<br>
+    Water: ${p.water}<br>
+    Fiber: ${p.fiber}<br><br>
+    Victory Points: ${p.victoryPoints}<br>
+    Queen Favor: ${p.queenFavor}<br>
+    Wax: ${p.wax}<br>
+    Research Cards: ${p.researchCards}
+  `;
+}
+
+function renderWelcome(){
+  const div=document.createElement("div");
+  div.id="welcome";
+  div.innerText=`Welcome to my Apiary clone.
+
+Explore: Add a worker, confirm, move, end movement, then click End Turn.`;
+  return div;
+}
+
+function renderExplore(){
+  const root=document.createElement("div");
+
+  const row=document.createElement("div");
+  row.className="worker-row";
+
+  gameState.exploreWorkers.forEach(w=>{
+    const b=document.createElement("div");
+    b.className="worker-slot";
+    b.innerText=w?("🐝 "+w):"Empty";
+    row.appendChild(b);
+  });
+
+  const t=document.createElement("div");
+  t.innerText="Total strength = "+getTotal();
+  row.appendChild(t);
+
+  root.appendChild(row);
+
+  if(!gameState.workerConfirmed){
+    const btns=document.createElement("div");
+    btns.className="worker-row";
+
+    [1,2,3,4].forEach(s=>{
+      const b=document.createElement("button");
+      b.innerText="Add worker of strength "+s;
+      b.disabled=gameState.workerPlacedThisTurn;
+      b.onclick=()=>addWorker(s);
+      btns.appendChild(b);
+    });
+
+    root.appendChild(btns);
+
+    const confirmRow=document.createElement("div");
+    confirmRow.className="worker-row";
+
+    const confirmBtn=document.createElement("button");
+    confirmBtn.innerText="Confirm worker";
+    confirmBtn.disabled=!gameState.workerPlacedThisTurn;
+    confirmBtn.onclick=confirmWorker;
+
+    const resetBtn=document.createElement("button");
+    resetBtn.innerText="Reset selection";
+    resetBtn.onclick=resetWorkerSelection;
+
+    confirmRow.appendChild(confirmBtn);
+    confirmRow.appendChild(resetBtn);
+
+    root.appendChild(confirmRow);
+  }
+
+  const ctrl=document.createElement("div");
+  ctrl.className="worker-row";
+
+  if(!gameState.movement.active && gameState.workerConfirmed){
+    const start=document.createElement("button");
+    start.innerText="Start movement";
+    start.onclick=startMovement;
+    ctrl.appendChild(start);
+  } else if(gameState.movement.active){
+    const end=document.createElement("button");
+    end.innerText="End movement";
+    end.onclick=endMovement;
+
+    const reset=document.createElement("button");
+    reset.innerText="Reset";
+    reset.onclick=resetMovement;
+
+    ctrl.appendChild(end);
+    ctrl.appendChild(reset);
+  }
+
+  root.appendChild(ctrl);
+
+  const grid=document.createElement("div");
+  grid.id="grid";
+
+  const valid=validMoves();
+
+  for(let i=0;i<16;i++){
+    const cell=gameState.grid[i];
+    const d=document.createElement("div");
+    d.className="tile";
+
+    d.onclick=()=>clickCell(i);
+
+    if(gameState.movement.path.includes(i)) d.classList.add("path");
+    if(valid.includes(i)) d.classList.add("valid");
+
+    if(cell.planet && cell.revealed){
+      d.innerHTML=`
+        <div class="slots">${cell.planet.slots.map(s=>s.filled?`[${fullName(s.resource)[0]}]`:"[ ]").join("  ")}</div>
+        <div class="planet-art"></div>
+        <div class="name">${cell.planet.name}</div>
+        <div class="sep"></div>
+        <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
+      `;
+    } else if(cell.hasToken){
+      d.innerText="⭐";
+    }
+
+    if(i===gameState.queenPosition){
+      const ship=document.createElement("div");
+      ship.className="ship";
+      ship.innerText="🚀";
+      d.appendChild(ship);
+    }
+
+    grid.appendChild(d);
+  }
+
+  root.appendChild(grid);
+
+  const log=document.createElement("div");
+  log.id="rewardLog";
+
+  if(gameState.lastExploreReward)
+    log.innerHTML += "Explore reward: "+gameState.lastExploreReward+"<br>";
+
+  if(gameState.lastPlanetReward)
+    log.innerHTML += "Planet reward: "+gameState.lastPlanetReward+"<br>";
+
+  if(gameState.lastFourStrength)
+    log.innerHTML += "4-strength power<br>";
+
+  root.appendChild(log);
+
+  if(gameState.turnReadyToEnd){
+    const btn=document.createElement("button");
+    btn.innerText="End Turn";
+    btn.onclick=()=>{
+      gameState.turnReadyToEnd=false;
+      endTurn();
+      render();
+    };
+    root.appendChild(btn);
+  }
+
+  return root;
+}
+
+function render(){
+  renderTabs();
+  renderPlayerPanel();
+
+  const content=document.getElementById("content");
+  content.innerHTML="";
+
+  if(gameState.activeArea==="Welcome"){
+    content.appendChild(renderWelcome());
+  }
+
+  if(gameState.activeArea==="Explore"){
+    content.appendChild(renderExplore());
+  }
+
+  document.getElementById("info").innerText="Player "+gameState.currentPlayer;
+}
+
+render();
 </script>
+
+</body>
+</html>
