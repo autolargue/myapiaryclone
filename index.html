@@ -13,6 +13,7 @@ body{
   display:flex;
 }
 
+/* LEFT PANEL */
 #leftPanel{
   width:240px;
   background:#111827;
@@ -21,21 +22,19 @@ body{
   border-right:1px solid #333;
 }
 
+/* MAIN */
 #main{
   flex:1;
   display:flex;
   flex-direction:column;
 }
 
-#topBar{
-  background:#111827;
-  padding:10px;
-}
-
+/* TABS */
 #tabs{
   display:flex;
   gap:6px;
-  margin-bottom:6px;
+  padding:10px;
+  background:#111827;
 }
 
 .tab{
@@ -45,15 +44,12 @@ body{
   cursor:pointer;
   font-size:12px;
 }
-.tab.active{background:#2563eb;}
 
-#info{
-  font-size:12px;
-  opacity:0.9;
-  padding:4px 0;
+.tab.active{
+  background:#2563eb;
 }
 
-/* GRID */
+/* CONTENT */
 #content{
   flex:1;
   display:flex;
@@ -62,6 +58,7 @@ body{
   padding-top:10px;
 }
 
+/* GRID */
 #grid{
   display:grid;
   grid-template-columns:repeat(4,90px);
@@ -79,6 +76,7 @@ body{
   cursor:pointer;
 }
 
+/* LOG */
 #log{
   padding:8px;
   text-align:center;
@@ -86,41 +84,23 @@ body{
   background:#0f172a;
   border-top:1px solid #333;
 }
-
-#rightPanel{
-  width:260px;
-  background:#111827;
-  padding:12px;
-  border-left:1px solid #333;
-}
 </style>
 </head>
 
 <body>
 
 <div id="leftPanel">
-<b>Explore System</b><br><br>
-Click a tile to discover planets.<br>
-Future: workers, movement, rewards.
+<b>Explore Prototype</b><br><br>
+Click tiles to discover planets.<br>
+Simple baseline version.
 </div>
 
 <div id="main">
 
-  <div id="topBar">
-    <div id="tabs"></div>
-
-    <!-- ⭐ THIS IS YOUR MISSING CONTENT AREA -->
-    <div id="info"></div>
-  </div>
-
+  <div id="tabs"></div>
   <div id="content"></div>
   <div id="log"></div>
 
-</div>
-
-<div id="rightPanel">
-  <b>Player State</b>
-  <div id="playerState"></div>
 </div>
 
 <script>
@@ -129,22 +109,12 @@ Future: workers, movement, rewards.
 
 const gameState={
   activeArea:"Explore",
-  currentPlayer:1,
   grid:Array(16).fill(null).map(()=>({planet:null}))
 };
-
-function currentPlayer(){
-  return gameState.currentPlayer;
-}
 
 /* ================= TABS ================= */
 
 const AREAS=["Explore","Grow","Convert","Research"];
-
-function setTab(a){
-  gameState.activeArea=a;
-  render();
-}
 
 function renderTabs(){
   const t=document.getElementById("tabs");
@@ -154,18 +124,8 @@ function renderTabs(){
     const d=document.createElement("div");
     d.className="tab"+(a===gameState.activeArea?" active":"");
     d.innerText=a;
-    d.onclick=()=>setTab(a);
     t.appendChild(d);
   });
-}
-
-/* ================= INFO (THIS WAS MISSING BEFORE) ================= */
-
-function renderInfo(){
-  document.getElementById("info").innerHTML=`
-    <b>Mode:</b> ${gameState.activeArea} |
-    <b>Player:</b> ${gameState.currentPlayer}
-  `;
 }
 
 /* ================= GRID ================= */
@@ -175,10 +135,10 @@ function explore(i){
 
   if(!cell.planet){
     cell.planet={name:"Planet "+i};
-    document.getElementById("log").innerText=
+    document.getElementById("log").innerText =
       "Discovered "+cell.planet.name;
   } else {
-    document.getElementById("log").innerText=
+    document.getElementById("log").innerText =
       "Visited "+cell.planet.name;
   }
 
@@ -186,42 +146,32 @@ function explore(i){
 }
 
 function renderGrid(){
-  const g=document.createElement("div");
-  g.id="grid";
+  const grid=document.createElement("div");
+  grid.id="grid";
 
   for(let i=0;i<16;i++){
-    const t=document.createElement("div");
-    t.className="tile";
+    const tile=document.createElement("div");
+    tile.className="tile";
 
-    const c=gameState.grid[i];
-    t.innerText=c.planet?c.planet.name:"⭐";
+    const cell=gameState.grid[i];
+    tile.innerText = cell.planet ? cell.planet.name : "⭐";
 
-    t.onclick=()=>explore(i);
-    g.appendChild(t);
+    tile.onclick=()=>explore(i);
+
+    grid.appendChild(tile);
   }
 
-  return g;
-}
-
-/* ================= PLAYER PANEL ================= */
-
-function renderPlayer(){
-  document.getElementById("playerState").innerHTML=`
-    Player ${gameState.currentPlayer}
-  `;
+  return grid;
 }
 
 /* ================= MAIN RENDER ================= */
 
 function render(){
   renderTabs();
-  renderInfo();   // ⭐ THIS RESTORES YOUR “CONTENT ABOVE GRID”
 
   const c=document.getElementById("content");
   c.innerHTML="";
   c.appendChild(renderGrid());
-
-  renderPlayer();
 }
 
 /* INIT */
