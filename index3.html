@@ -219,7 +219,7 @@ const gameState={
   workerPlacedThisTurn:false,
   workerConfirmed:false,
 
-  movement:{ active:false, path:[], maxSteps:0 },
+  movement:{ active:false, path:[], maxSteps:0, ended:false },
 
   lastExploreReward:null,
   lastPlanetReward:null,
@@ -344,6 +344,7 @@ function endMovement(){
 
   gameState.grid[start].visited=true;
   gameState.movement.active=false;
+  gameState.movement.ended=true;
 
   animate(path,()=>{
     const final=path[path.length-1];
@@ -544,7 +545,7 @@ function renderExplore(){
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  if(!gameState.movement.active && gameState.workerConfirmed){
+  if(!gameState.movement.active && gameState.workerConfirmed && !gameState.movement.ended){
     const start=document.createElement("button");
     start.innerText="Start movement";
     start.onclick=startMovement;
