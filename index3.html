@@ -545,7 +545,7 @@ function renderExplore(){
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  if(!gameState.movement.active && gameState.workerConfirmed){
+  if(!gameState.movement.active && gameState.workerConfirmed && !gameState.turnReadyToEnd){
     const start=document.createElement("button");
     start.innerText="Start movement";
     start.onclick=startMovement;
