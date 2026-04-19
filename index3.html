@@ -91,6 +91,7 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   text-align:center;
   margin-top:10px;
   font-size:12px;
+  line-height:1.4;
 }
 </style>
 </head>
@@ -159,7 +160,9 @@ const gameState={
 
   movement:{ active:false, path:[], maxSteps:0 },
 
-  lastExploreReward:null
+  lastExploreReward:null,
+  lastPlanetReward:null,
+  lastFourStrength:null
 };
 
 /* ===== HELPERS ===== */
@@ -272,6 +275,10 @@ function endMovement(){
 function resolveExplore(i){
   const cell=gameState.grid[i];
 
+  gameState.lastExploreReward=null;
+  gameState.lastPlanetReward=null;
+  gameState.lastFourStrength=null;
+
   if(cell.hasToken){
     gameState.lastExploreReward = drawExploreToken();
     cell.hasToken=false;
@@ -286,6 +293,21 @@ function resolveExplore(i){
       empty.resource=t;
       empty.filled=true;
     }
+  }
+
+  /* planet reward */
+  const resources = cell.planet.slots
+    .filter(s=>s.filled)
+    .map(s=>fmt(s.resource));
+
+  if(resources.length){
+    gameState.lastPlanetReward = resources.join(" + ");
+  }
+
+  /* 4-strength */
+  const usedWorker = gameState.exploreWorkers[0];
+  if(cell.planet.hasFourStrength && usedWorker===4){
+    gameState.lastFourStrength = "4-strength power";
   }
 
   cell.revealed=true;
@@ -448,13 +470,20 @@ function renderExplore(){
 
   root.appendChild(grid);
 
-  /* reward display */
-  if(gameState.lastExploreReward){
-    const r=document.createElement("div");
-    r.id="rewardLog";
-    r.innerText="Explore reward: "+gameState.lastExploreReward;
-    root.appendChild(r);
-  }
+  /* reward log */
+  const log=document.createElement("div");
+  log.id="rewardLog";
+
+  if(gameState.lastExploreReward)
+    log.innerHTML += "Explore reward: "+gameState.lastExploreReward+"<br>";
+
+  if(gameState.lastPlanetReward)
+    log.innerHTML += "Planet reward: "+gameState.lastPlanetReward+"<br>";
+
+  if(gameState.lastFourStrength)
+    log.innerHTML += "4-strength power";
+
+  root.appendChild(log);
 
   return root;
 }
