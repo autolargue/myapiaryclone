@@ -122,7 +122,7 @@ const gameState={
   activeArea:"Explore",
   queenPosition:15,
 
-  grid:Array(16).fill(null).map(()=>({
+  grid:Array(16).fill(null).map(()=>( {
     planet:null,
     revealed:false,
     visited:false
@@ -270,7 +270,6 @@ function renderTabs(){
 function renderExplore(){
   const root=document.createElement("div");
 
-  /* workers */
   const row=document.createElement("div");
   row.className="worker-row";
 
@@ -287,13 +286,12 @@ function renderExplore(){
 
   root.appendChild(row);
 
-  /* worker buttons */
   const btns=document.createElement("div");
   btns.className="worker-row";
 
   [1,2,3,4].forEach(s=>{
     const b=document.createElement("button");
-    b.innerText="Add W"+s;
+    b.innerText="Add worker of strength "+s;
     b.disabled=gameState.workerPlacedThisTurn;
     b.onclick=()=>addWorker(s);
     btns.appendChild(b);
@@ -301,7 +299,6 @@ function renderExplore(){
 
   root.appendChild(btns);
 
-  /* movement controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
@@ -325,7 +322,6 @@ function renderExplore(){
 
   root.appendChild(ctrl);
 
-  /* moves */
   if(gameState.movement.active){
     const m=document.createElement("div");
     m.style.textAlign="center";
@@ -337,7 +333,6 @@ function renderExplore(){
     root.appendChild(d);
   }
 
-  /* grid */
   const grid=document.createElement("div");
   grid.id="grid";
 
@@ -353,7 +348,6 @@ function renderExplore(){
     if(gameState.movement.path.includes(i)) d.classList.add("path");
     if(valid.includes(i)) d.classList.add("valid");
 
-    /* planet content FIRST */
     if(cell.planet && cell.revealed){
       d.innerHTML=`
         <div class="slots">${renderSlots(cell.planet)}</div>
@@ -366,7 +360,6 @@ function renderExplore(){
       d.innerText="⭐";
     }
 
-    /* ship overlay */
     if(i===gameState.queenPosition){
       const ship=document.createElement("div");
       ship.className="ship";
