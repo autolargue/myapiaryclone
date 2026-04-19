@@ -1,180 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Apiary Explore Prototype</title>
-
-<style>
-body{
-  margin:0;
-  background:#0b1020;
-  color:white;
-  font-family:Arial;
-  display:flex;
-}
-
-/* LEFT PANEL */
-#leftPanel{
-  width:240px;
-  background:#111827;
-  padding:12px;
-  font-size:12px;
-  border-right:1px solid #333;
-}
-
-/* MAIN */
-#main{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-}
-
-/* TABS */
-#tabs{
-  display:flex;
-  gap:6px;
-  padding:10px;
-  background:#111827;
-}
-
-.tab{
-  padding:6px 10px;
-  background:#1f2937;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:12px;
-}
-
-.tab.active{
-  background:#2563eb;
-}
-
-/* CONTENT */
-#content{
-  flex:1;
-  display:flex;
-  justify-content:center;
-  align-items:flex-start;
-  padding-top:10px;
-}
-
-/* GRID */
-#grid{
-  display:grid;
-  grid-template-columns:repeat(4,90px);
-  gap:4px;
-}
-
-.tile{
-  width:90px;
-  height:90px;
-  border:1px solid rgba(255,255,255,0.2);
-  background:rgba(255,255,255,0.05);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-}
-
-/* LOG */
-#log{
-  padding:8px;
-  text-align:center;
-  font-size:12px;
-  background:#0f172a;
-  border-top:1px solid #333;
-}
-</style>
+<title>RESET TEST</title>
 </head>
 
 <body>
 
-<div id="leftPanel">
-<b>Explore Prototype</b><br><br>
-Click tiles to discover planets.<br>
-Simple baseline version.
-</div>
+<h2>IF YOU SEE THIS, FILE IS CORRECT</h2>
 
-<div id="main">
-
-  <div id="tabs"></div>
-  <div id="content"></div>
-  <div id="log"></div>
-
-</div>
+<div id="tabs"></div>
+<div id="content"></div>
 
 <script>
 
-/* ================= STATE ================= */
-
-const gameState={
-  activeArea:"Explore",
-  grid:Array(16).fill(null).map(()=>({planet:null}))
+const state={
+ grid:Array(16).fill(null).map(()=>({planet:null}))
 };
 
-/* ================= TABS ================= */
-
-const AREAS=["Explore","Grow","Convert","Research"];
-
 function renderTabs(){
-  const t=document.getElementById("tabs");
-  t.innerHTML="";
-
-  AREAS.forEach(a=>{
-    const d=document.createElement("div");
-    d.className="tab"+(a===gameState.activeArea?" active":"");
-    d.innerText=a;
-    t.appendChild(d);
-  });
-}
-
-/* ================= GRID ================= */
-
-function explore(i){
-  const cell=gameState.grid[i];
-
-  if(!cell.planet){
-    cell.planet={name:"Planet "+i};
-    document.getElementById("log").innerText =
-      "Discovered "+cell.planet.name;
-  } else {
-    document.getElementById("log").innerText =
-      "Visited "+cell.planet.name;
-  }
-
-  render();
+ document.getElementById("tabs").innerHTML=
+  "<button>Explore</button><button>Grow</button>";
 }
 
 function renderGrid(){
-  const grid=document.createElement("div");
-  grid.id="grid";
-
-  for(let i=0;i<16;i++){
-    const tile=document.createElement("div");
-    tile.className="tile";
-
-    const cell=gameState.grid[i];
-    tile.innerText = cell.planet ? cell.planet.name : "⭐";
-
-    tile.onclick=()=>explore(i);
-
-    grid.appendChild(tile);
-  }
-
-  return grid;
+ let html="<div style='display:grid;grid-template-columns:repeat(4,80px);gap:4px'>";
+ for(let i=0;i<16;i++){
+  const cell=state.grid[i];
+  html+=`
+   <div style="width:80px;height:80px;border:1px solid black;display:flex;align-items:center;justify-content:center"
+   onclick="clickTile(${i})">
+   ${cell.planet?cell.planet.name:"⭐"}
+   </div>
+  `;
+ }
+ html+="</div>";
+ return html;
 }
 
-/* ================= MAIN RENDER ================= */
+function clickTile(i){
+ if(!state.grid[i].planet){
+  state.grid[i].planet={name:"P"+i};
+ }
+ render();
+}
 
 function render(){
-  renderTabs();
-
-  const c=document.getElementById("content");
-  c.innerHTML="";
-  c.appendChild(renderGrid());
+ renderTabs();
+ document.getElementById("content").innerHTML=renderGrid();
 }
 
-/* INIT */
 render();
 
 </script>
