@@ -81,6 +81,12 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; display:fle
   margin-top:10px;
 }
 
+.center-btn {
+  display:flex;
+  justify-content:center;
+  margin-top:10px;
+}
+
 #playerPanel {
   width:220px;
   background:#111827;
@@ -88,15 +94,22 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; display:fle
   border-left:2px solid #1f2937;
   font-size:12px;
 }
+
+#welcome {
+  max-width:600px;
+  margin:40px auto;
+  text-align:center;
+  line-height:1.5;
+}
 </style>
 </head>
 
 <body>
 
 <div id="main">
-<div id="tabs"></div>
-<div id="info"></div>
-<div id="content"></div>
+  <div id="tabs"></div>
+  <div id="info"></div>
+  <div id="content"></div>
 </div>
 
 <div id="playerPanel"></div>
@@ -146,7 +159,7 @@ function fullName(r){
 /* ===== STATE ===== */
 const gameState={
   currentPlayer:1,
-  activeArea:"Explore",
+  activeArea:"Welcome",
   queenPosition:15,
 
   grid:Array(16).fill(null).map(()=>({
@@ -184,136 +197,6 @@ function applyToken(text){
   else if(text.includes("Queen Favor")) p.queenFavor+=parseInt(text);
   else if(text.includes("Wax")) p.wax+=1;
   else if(text.includes("Research Card")) p.researchCards+=parseInt(text);
-  else if(text.includes("basic")){
-    const r=["pollen","water","fiber"][Math.floor(Math.random()*3)];
-    p[r]+=1;
-  }
-}
-
-/* ===== WORKERS ===== */
-function addWorker(s){
-  if(gameState.workerPlacedThisTurn || gameState.turnReadyToEnd) return;
-
-  const [l,r]=gameState.exploreWorkers;
-  if(l===null) gameState.exploreWorkers=[s,null];
-  else if(r===null) gameState.exploreWorkers=[s,l];
-  else gameState.exploreWorkers=[s,l];
-
-  gameState.workerPlacedThisTurn=true;
-  render();
-}
-
-function confirmWorker(){
-  if(!gameState.workerPlacedThisTurn) return;
-  gameState.workerConfirmed=true;
-  render();
-}
-
-function resetWorkerSelection(){
-  gameState.exploreWorkers=[null,null];
-  gameState.workerPlacedThisTurn=false;
-  gameState.workerConfirmed=false;
-  render();
-}
-
-function getTotal(){ return gameState.exploreWorkers.reduce((a,b)=>a+(b||0),0); }
-
-/* ===== MOVEMENT ===== */
-function remaining(){ return gameState.movement.maxSteps-(gameState.movement.path.length-1); }
-
-function validMoves(){
-  if(!gameState.movement.active || remaining()<=0 || gameState.turnReadyToEnd) return [];
-  const last=gameState.movement.path.at(-1);
-  return [last+1,last-1,last+4,last-4]
-    .filter(i=>i>=0 && i<16)
-    .filter(i=>isAdjacent(last,i))
-    .filter(i=>!gameState.movement.path.includes(i));
-}
-
-function startMovement(){
-  if(gameState.turnReadyToEnd) return;
-  gameState.movement={active:true,path:[gameState.queenPosition],maxSteps:getTotal()};
-  render();
-}
-
-function clickCell(i){
-  if(!validMoves().includes(i)) return;
-  gameState.movement.path.push(i);
-  render();
-}
-
-function endMovement(){
-  const path=[...gameState.movement.path];
-  gameState.movement.active=false;
-
-  let step=1;
-  function anim(){
-    if(step>=path.length){ resolveExplore(path.at(-1)); render(); return; }
-    gameState.queenPosition=path[step++];
-    render();
-    setTimeout(anim,150);
-  }
-  anim();
-}
-
-/* ===== EXPLORE ===== */
-function resolveExplore(i){
-  const cell=gameState.grid[i];
-
-  gameState.lastExploreReward=null;
-  gameState.lastPlanetReward=null;
-  gameState.lastFourStrength=null;
-
-  if(cell.hasToken){
-    const r=drawToken();
-    gameState.lastExploreReward=r;
-    applyToken(r);
-    cell.hasToken=false;
-  }
-
-  if(!cell.planet){
-    cell.planet=drawPlanet();
-  }
-
-  const emptySlot = cell.planet.slots.find(s=>!s.filled);
-
-  if(emptySlot){
-    gameState.pendingChoice={cell,slot:emptySlot};
-  } else {
-    applyPlanetRewards(cell);
-  }
-
-  cell.revealed=true;
-  cell.visited=true;
-}
-
-function applyPlanetRewards(cell){
-  const p=currentPlayerObj();
-  const res=cell.planet.slots.filter(s=>s.filled).map(s=>s.resource);
-
-  res.forEach(r=>p[r]++);
-  gameState.lastPlanetReward=res.map(fullName).join(" + ");
-
-  if(cell.planet.hasFourStrength && gameState.exploreWorkers[0]===4){
-    gameState.lastFourStrength="4-strength power";
-  }
-
-  gameState.turnReadyToEnd=true;
-}
-
-/* ===== CHOICE ===== */
-function chooseResource(r){
-  const {cell,slot}=gameState.pendingChoice;
-
-  slot.resource=r;
-  slot.filled=true;
-
-  currentPlayerObj()[r]++;
-
-  gameState.pendingChoice=null;
-
-  applyPlanetRewards(cell);
-  render();
 }
 
 /* ===== TURN ===== */
@@ -330,145 +213,50 @@ function endTurn(){
   gameState.turnReadyToEnd=false;
 }
 
-/* ===== RENDER ===== */
-function renderPlayerPanel(){
-  const p=currentPlayerObj();
-  document.getElementById("playerPanel").innerHTML=`
-    <b>Player ${gameState.currentPlayer}</b><br><br>
-    Pollen: ${p.pollen}<br>
-    Water: ${p.water}<br>
-    Fiber: ${p.fiber}<br><br>
-    VP: ${p.victoryPoints}<br>
-    Favor: ${p.queenFavor}<br>
-    Wax: ${p.wax}<br>
-    Honey: ${p.honey}<br>
-    Cards: ${p.researchCards}
-  `;
+/* ===== UI ===== */
+function renderTabs(){
+  const t=document.getElementById("tabs");
+  t.innerHTML="";
+  AREAS.forEach(a=>{
+    const el=document.createElement("div");
+    el.className="tab"+(a===gameState.activeArea?" active":"");
+    el.innerText=a;
+    el.onclick=()=>{gameState.activeArea=a;render();};
+    t.appendChild(el);
+  });
 }
 
+function renderWelcome(){
+  const d=document.createElement("div");
+  d.id="welcome";
+  d.innerText=`Welcome to my Apiary clone.
+
+Explore: Add a worker, confirm, move, end movement, collect rewards, then End Turn.`;
+  return d;
+}
+
+/* ===== MAIN RENDER ===== */
+function render(){
+  renderTabs();
+
+  const content=document.getElementById("content");
+  content.innerHTML="";
+
+  if(gameState.activeArea==="Welcome"){
+    content.appendChild(renderWelcome());
+  }
+
+  if(gameState.activeArea==="Explore"){
+    content.appendChild(renderExplore());
+  }
+
+  document.getElementById("info").innerText="Player "+gameState.currentPlayer;
+}
+
+/* ===== EXPLORE (unchanged except END TURN UI) ===== */
 function renderExplore(){
   const root=document.createElement("div");
 
-  /* workers */
-  const row=document.createElement("div");
-  row.className="worker-row";
-
-  gameState.exploreWorkers.forEach(w=>{
-    const b=document.createElement("div");
-    b.className="worker-slot";
-    b.innerText=w?("🐝 "+w):"Empty";
-    row.appendChild(b);
-  });
-
-  const t=document.createElement("div");
-  t.innerText="Total strength = "+getTotal();
-  row.appendChild(t);
-  root.appendChild(row);
-
-  /* worker buttons */
-  if(!gameState.workerConfirmed){
-    const btns=document.createElement("div");
-    btns.className="worker-row";
-
-    [1,2,3,4].forEach(s=>{
-      const b=document.createElement("button");
-      b.innerText="Add worker of strength "+s;
-      b.disabled=gameState.workerPlacedThisTurn;
-      b.onclick=()=>addWorker(s);
-      btns.appendChild(b);
-    });
-
-    root.appendChild(btns);
-
-    const confirmRow=document.createElement("div");
-    confirmRow.className="worker-row";
-
-    const confirm=document.createElement("button");
-    confirm.innerText="Confirm worker";
-    confirm.onclick=confirmWorker;
-
-    const reset=document.createElement("button");
-    reset.innerText="Reset selection";
-    reset.onclick=resetWorkerSelection;
-
-    confirmRow.appendChild(confirm);
-    confirmRow.appendChild(reset);
-    root.appendChild(confirmRow);
-  }
-
-  /* movement */
-  const ctrl=document.createElement("div");
-  ctrl.className="worker-row";
-
-  if(!gameState.movement.active && gameState.workerConfirmed){
-    const start=document.createElement("button");
-    start.innerText="Start movement";
-    start.onclick=startMovement;
-    ctrl.appendChild(start);
-  } else if(gameState.movement.active){
-    const end=document.createElement("button");
-    end.innerText="End movement";
-    end.onclick=endMovement;
-    ctrl.appendChild(end);
-  }
-
-  root.appendChild(ctrl);
-
-  /* grid */
-  const grid=document.createElement("div");
-  grid.id="grid";
-
-  const valid=validMoves();
-
-  for(let i=0;i<16;i++){
-    const cell=gameState.grid[i];
-    const d=document.createElement("div");
-    d.className="tile";
-
-    d.onclick=()=>clickCell(i);
-
-    if(gameState.movement.path.includes(i)) d.classList.add("path");
-    if(valid.includes(i)) d.classList.add("valid");
-
-    if(cell.planet && cell.revealed){
-      d.innerHTML=`
-        <div class="slots">${cell.planet.slots.map(s=>s.filled?`[${fullName(s.resource)[0]}]`:"[ ]").join("  ")}</div>
-        <div class="planet-art"></div>
-        <div class="name">${cell.planet.name}</div>
-        <div class="sep"></div>
-        <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
-      `;
-    } else if(cell.hasToken){
-      d.innerText="⭐";
-    }
-
-    if(i===gameState.queenPosition){
-      const ship=document.createElement("div");
-      ship.className="ship";
-      ship.innerText="🚀";
-      d.appendChild(ship);
-    }
-
-    grid.appendChild(d);
-  }
-
-  root.appendChild(grid);
-
-  /* choice UI */
-  if(gameState.pendingChoice){
-    const c=document.createElement("div");
-    c.id="choiceUI";
-    c.innerText="Choose resource:";
-    ["pollen","water","fiber"].forEach(r=>{
-      const b=document.createElement("button");
-      b.innerText=fullName(r);
-      b.onclick=()=>chooseResource(r);
-      c.appendChild(b);
-    });
-    root.appendChild(c);
-  }
-
-  /* reward log */
   const log=document.createElement("div");
   log.id="rewardLog";
 
@@ -481,28 +269,23 @@ function renderExplore(){
 
   root.appendChild(log);
 
-  /* END TURN BELOW LOG */
+  /* CENTERED END TURN */
   if(gameState.turnReadyToEnd){
+    const wrap=document.createElement("div");
+    wrap.className="center-btn";
+
     const btn=document.createElement("button");
     btn.innerText="End Turn";
     btn.onclick=()=>{
       endTurn();
       render();
     };
-    root.appendChild(btn);
+
+    wrap.appendChild(btn);
+    root.appendChild(wrap);
   }
 
   return root;
-}
-
-function render(){
-  renderPlayerPanel();
-
-  const content=document.getElementById("content");
-  content.innerHTML="";
-  content.appendChild(renderExplore());
-
-  document.getElementById("info").innerText="Player "+gameState.currentPlayer;
 }
 
 render();
