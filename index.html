@@ -13,7 +13,6 @@ body{
   display:flex;
 }
 
-/* LEFT */
 #leftPanel{
   width:240px;
   background:#111827;
@@ -22,24 +21,21 @@ body{
   border-right:1px solid #333;
 }
 
-/* CENTER */
 #main{
   flex:1;
   display:flex;
   flex-direction:column;
 }
 
-/* TOP AREA (THIS WAS MISSING) */
 #topBar{
   background:#111827;
   padding:10px;
 }
 
-/* TABS */
 #tabs{
   display:flex;
   gap:6px;
-  margin-bottom:8px;
+  margin-bottom:6px;
 }
 
 .tab{
@@ -47,10 +43,17 @@ body{
   background:#1f2937;
   border-radius:4px;
   cursor:pointer;
+  font-size:12px;
 }
 .tab.active{background:#2563eb;}
 
-/* GRID AREA */
+#info{
+  font-size:12px;
+  opacity:0.9;
+  padding:4px 0;
+}
+
+/* GRID */
 #content{
   flex:1;
   display:flex;
@@ -59,14 +62,12 @@ body{
   padding-top:10px;
 }
 
-/* GRID */
 #grid{
   display:grid;
   grid-template-columns:repeat(4,90px);
   gap:4px;
 }
 
-/* TILE */
 .tile{
   width:90px;
   height:90px;
@@ -75,9 +76,9 @@ body{
   display:flex;
   align-items:center;
   justify-content:center;
+  cursor:pointer;
 }
 
-/* BOTTOM FEEDBACK */
 #log{
   padding:8px;
   text-align:center;
@@ -86,7 +87,6 @@ body{
   border-top:1px solid #333;
 }
 
-/* RIGHT PANEL */
 #rightPanel{
   width:260px;
   background:#111827;
@@ -100,15 +100,16 @@ body{
 
 <div id="leftPanel">
 <b>Explore System</b><br><br>
-Move ship → discover planets → gain resources<br><br>
-Empty slots require player choice.
+Click a tile to discover planets.<br>
+Future: workers, movement, rewards.
 </div>
 
 <div id="main">
 
-  <!-- ⭐ TOP BAR RESTORED -->
   <div id="topBar">
     <div id="tabs"></div>
+
+    <!-- ⭐ THIS IS YOUR MISSING CONTENT AREA -->
     <div id="info"></div>
   </div>
 
@@ -126,105 +127,101 @@ Empty slots require player choice.
 
 /* ================= STATE ================= */
 
-function createPlayer(id){
- return {
-  id,
-  resources:{pollen:0,fiber:0,water:0,wax:0,honey:0},
-  activePool:[null,null,null,null],
-  landingArea:[null,null,null,null],
-  hibernationTokens:7
- };
-}
-
 const gameState={
- players:[createPlayer(1),createPlayer(2)],
- currentPlayer:0,
- grid:Array(16).fill(null).map(()=>({planet:null,revealed:false}))
+  activeArea:"Explore",
+  currentPlayer:1,
+  grid:Array(16).fill(null).map(()=>({planet:null}))
 };
 
 function currentPlayer(){
- return gameState.players[gameState.currentPlayer];
+  return gameState.currentPlayer;
 }
 
 /* ================= TABS ================= */
 
 const AREAS=["Explore","Grow","Convert","Research"];
 
+function setTab(a){
+  gameState.activeArea=a;
+  render();
+}
+
 function renderTabs(){
- const t=document.getElementById("tabs");
- t.innerHTML="";
- AREAS.forEach(a=>{
-  const d=document.createElement("div");
-  d.className="tab active";
-  d.innerText=a;
-  t.appendChild(d);
- });
+  const t=document.getElementById("tabs");
+  t.innerHTML="";
+
+  AREAS.forEach(a=>{
+    const d=document.createElement("div");
+    d.className="tab"+(a===gameState.activeArea?" active":"");
+    d.innerText=a;
+    d.onclick=()=>setTab(a);
+    t.appendChild(d);
+  });
+}
+
+/* ================= INFO (THIS WAS MISSING BEFORE) ================= */
+
+function renderInfo(){
+  document.getElementById("info").innerHTML=`
+    <b>Mode:</b> ${gameState.activeArea} |
+    <b>Player:</b> ${gameState.currentPlayer}
+  `;
 }
 
 /* ================= GRID ================= */
 
-function resolveExplore(i){
- const cell=gameState.grid[i];
+function explore(i){
+  const cell=gameState.grid[i];
 
- if(!cell.planet){
-  cell.planet={name:"Planet "+i,slots:[]};
- }
+  if(!cell.planet){
+    cell.planet={name:"Planet "+i};
+    document.getElementById("log").innerText=
+      "Discovered "+cell.planet.name;
+  } else {
+    document.getElementById("log").innerText=
+      "Visited "+cell.planet.name;
+  }
 
- cell.revealed=true;
-
- document.getElementById("log").innerText =
-  "Explored sector "+i;
-
- render();
+  render();
 }
 
 function renderGrid(){
- const grid=document.createElement("div");
- grid.id="grid";
+  const g=document.createElement("div");
+  g.id="grid";
 
- for(let i=0;i<16;i++){
-  const tile=document.createElement("div");
-  tile.className="tile";
+  for(let i=0;i<16;i++){
+    const t=document.createElement("div");
+    t.className="tile";
 
-  const cell=gameState.grid[i];
-  tile.innerText = cell.planet ? "🌍" : "⭐";
+    const c=gameState.grid[i];
+    t.innerText=c.planet?c.planet.name:"⭐";
 
-  tile.onclick=()=>resolveExplore(i);
+    t.onclick=()=>explore(i);
+    g.appendChild(t);
+  }
 
-  grid.appendChild(tile);
- }
-
- return grid;
+  return g;
 }
 
-/* ================= PLAYER ================= */
+/* ================= PLAYER PANEL ================= */
 
 function renderPlayer(){
- const p=currentPlayer();
-
- document.getElementById("playerState").innerHTML=`
- Player ${p.id}<br><br>
-
- Pollen: ${p.resources.pollen}<br>
- Fiber: ${p.resources.fiber}<br>
- Water: ${p.resources.water}<br><br>
-
- Hibernation: ${p.hibernationTokens}<br><br>
-
- Active: ${JSON.stringify(p.activePool)}<br><br>
- Landing: ${JSON.stringify(p.landingArea)}
- `;
+  document.getElementById("playerState").innerHTML=`
+    Player ${gameState.currentPlayer}
+  `;
 }
 
 /* ================= MAIN RENDER ================= */
 
 function render(){
- renderTabs();
+  renderTabs();
+  renderInfo();   // ⭐ THIS RESTORES YOUR “CONTENT ABOVE GRID”
 
- document.getElementById("content").innerHTML="";
- document.getElementById("content").appendChild(renderGrid());
+  const c=document.getElementById("content");
+  c.innerHTML="";
+  c.appendChild(renderGrid());
 
- renderPlayer();
+  renderPlayer();
 }
 
 /* INIT */
