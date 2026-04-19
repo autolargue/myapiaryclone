@@ -66,7 +66,6 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 .sep { width:80%; height:1px; background:white; opacity:0.3; }
 .bonus { font-size:8px; }
 
-/* ship overlay */
 .ship {
   position:absolute;
   top:2px;
@@ -159,6 +158,13 @@ function addWorker(s){
 function confirmWorker(){
   if(!gameState.workerPlacedThisTurn) return;
   gameState.workerConfirmed=true;
+  render();
+}
+
+function resetWorkerSelection(){
+  gameState.exploreWorkers=[null,null];
+  gameState.workerPlacedThisTurn=false;
+  gameState.workerConfirmed=false;
   render();
 }
 
@@ -294,31 +300,42 @@ function renderExplore(){
 
   root.appendChild(row);
 
-  const btns=document.createElement("div");
-  btns.className="worker-row";
+  /* worker buttons (hidden after confirm) */
+  if(!gameState.workerConfirmed){
+    const btns=document.createElement("div");
+    btns.className="worker-row";
 
-  [1,2,3,4].forEach(s=>{
-    const b=document.createElement("button");
-    b.innerText="Add worker of strength "+s;
-    b.disabled=gameState.workerPlacedThisTurn;
-    b.onclick=()=>addWorker(s);
-    btns.appendChild(b);
-  });
+    [1,2,3,4].forEach(s=>{
+      const b=document.createElement("button");
+      b.innerText="Add worker of strength "+s;
+      b.disabled=gameState.workerPlacedThisTurn;
+      b.onclick=()=>addWorker(s);
+      btns.appendChild(b);
+    });
 
-  root.appendChild(btns);
+    root.appendChild(btns);
 
-  // CONFIRM BUTTON
-  const confirmRow=document.createElement("div");
-  confirmRow.className="worker-row";
+    /* confirm + reset */
+    const confirmRow=document.createElement("div");
+    confirmRow.className="worker-row";
 
-  const confirmBtn=document.createElement("button");
-  confirmBtn.innerText="Confirm worker";
-  confirmBtn.disabled=!gameState.workerPlacedThisTurn || gameState.workerConfirmed;
-  confirmBtn.onclick=confirmWorker;
+    const confirmBtn=document.createElement("button");
+    confirmBtn.innerText="Confirm worker";
+    confirmBtn.disabled=!gameState.workerPlacedThisTurn;
+    confirmBtn.onclick=confirmWorker;
 
-  confirmRow.appendChild(confirmBtn);
-  root.appendChild(confirmRow);
+    const resetBtn=document.createElement("button");
+    resetBtn.innerText="Reset selection";
+    resetBtn.disabled=!gameState.workerPlacedThisTurn;
+    resetBtn.onclick=resetWorkerSelection;
 
+    confirmRow.appendChild(confirmBtn);
+    confirmRow.appendChild(resetBtn);
+
+    root.appendChild(confirmRow);
+  }
+
+  /* movement controls */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
