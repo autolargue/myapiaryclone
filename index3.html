@@ -219,7 +219,7 @@ const gameState={
   workerPlacedThisTurn:false,
   workerConfirmed:false,
 
-  movement:{ active:false, path:[], maxSteps:0, ended:false },
+  movement:{ active:false, path:[], maxSteps:0 },
 
   lastExploreReward:null,
   lastPlanetReward:null,
@@ -405,7 +405,6 @@ function endTurn(){
   gameState.lastExploreReward=null;
   gameState.lastPlanetReward=null;
   gameState.lastFourStrength=null;
-  gameState.movement.ended=false;
 }
 
 /* ===== RENDER ===== */
@@ -546,7 +545,7 @@ function renderExplore(){
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
-  if(!gameState.movement.active && gameState.workerConfirmed && !gameState.movement.ended){
+  if(!gameState.movement.active && gameState.workerConfirmed){
     const start=document.createElement("button");
     start.innerText="Start movement";
     start.onclick=startMovement;
