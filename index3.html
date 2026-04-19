@@ -80,12 +80,17 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
   margin:5px auto;
 }
 
-/* Welcome page */
 #welcome {
   max-width:600px;
   margin:40px auto;
-  text-align:center; /* centers paragraph block */
+  text-align:center;
   line-height:1.5;
+}
+
+#rewardLog{
+  text-align:center;
+  margin-top:10px;
+  font-size:12px;
 }
 </style>
 </head>
@@ -99,6 +104,18 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; }
 <script>
 const SIZE=4;
 const AREAS=["Welcome","Explore","Grow","Convert","Research","Carve","Hibernation"];
+
+/* ===== EXPLORE TOKENS ===== */
+const EXPLORE_TOKENS = [
+ "1 pollen","2 pollen","1 water","2 water","1 fiber","2 fiber",
+ "1 Victory Point","1 Queen Favor","2 Queen Favor","1 Wax",
+ "1 Research Card","2 Research Card","1 basic resource",
+ "1 Victory Point","1 Queen Favor"
+];
+
+function drawExploreToken(){
+  return EXPLORE_TOKENS[Math.floor(Math.random()*EXPLORE_TOKENS.length)];
+}
 
 /* ===== PLANETS ===== */
 function empty(){return {resource:null,filled:false,predefined:false};}
@@ -132,14 +149,17 @@ const gameState={
   grid:Array(16).fill(null).map(()=>({
     planet:null,
     revealed:false,
-    visited:false
+    visited:false,
+    hasToken:true
   })),
 
   exploreWorkers:[null,null],
   workerPlacedThisTurn:false,
   workerConfirmed:false,
 
-  movement:{ active:false, path:[], maxSteps:0 }
+  movement:{ active:false, path:[], maxSteps:0 },
+
+  lastExploreReward:null
 };
 
 /* ===== HELPERS ===== */
@@ -251,6 +271,11 @@ function endMovement(){
 /* ===== EXPLORE ===== */
 function resolveExplore(i){
   const cell=gameState.grid[i];
+
+  if(cell.hasToken){
+    gameState.lastExploreReward = drawExploreToken();
+    cell.hasToken=false;
+  }
 
   if(!cell.planet){
     cell.planet=drawPlanet();
@@ -407,7 +432,7 @@ function renderExplore(){
         <div class="sep"></div>
         <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
       `;
-    } else if(!cell.visited){
+    } else if(cell.hasToken){
       d.innerText="⭐";
     }
 
@@ -422,6 +447,15 @@ function renderExplore(){
   }
 
   root.appendChild(grid);
+
+  /* reward display */
+  if(gameState.lastExploreReward){
+    const r=document.createElement("div");
+    r.id="rewardLog";
+    r.innerText="Explore reward: "+gameState.lastExploreReward;
+    root.appendChild(r);
+  }
+
   return root;
 }
 
