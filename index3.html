@@ -199,13 +199,22 @@ const gameState={
   activeArea:"Welcome",
   queenPosition:15,
 
+  /* old grid 
   grid:Array(16).fill(null).map(()=>({
     planet:null,
     revealed:false,
     visited:false,
     hasToken:true
   })),
+*/
 
+  grid: Array(16).fill(null).map((_, index) => ({
+    planet: null,
+    revealed: false,
+    visited: false,
+    hasToken: (index === 15) ? false : true // Sets index 15 to false, others to true
+  })),
+  
   exploreWorkers:[null,null],
   workerPlacedThisTurn:false,
   workerConfirmed:false,
@@ -410,17 +419,65 @@ function renderTabs(){
   });
 }
 
+function renderPlayerPanel() {
+  const p = currentPlayerObj();
+
+  // Helper function to create the 4-slot row for any strength prefix
+  const getSlots = (prefix) => Array(4).fill(null).map((_, i) => {
+    const val = p[prefix + (i + 1) + 'Strength'];
+    return `<span class="worker-slot">[Worker-${val}]</span>`;
+  }).join(" ");
+
+  const activeSlots = getSlots('active');
+  const landedSlots = getSlots('landed');
+
+  document.getElementById("playerPanel").innerHTML = `
+    <b>Player ${gameState.currentPlayer} </b><br><br>
+    Pollen: ${p.pollen} &nbsp;&nbsp;Water: ${p.water} &nbsp;&nbsp;Fiber: ${p.fiber} <br><br>
+    Wax: ${p.wax} &nbsp;&nbsp;Honey: ${p.honey} <br><hr>
+    Victory Points: ${p.victoryPoints} &nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor} <br><br>
+    Research Cards: ${p.researchCards} <hr>
+    DOCKING MAT<br><hr>
+    <div class="worker-row">${activeSlots}</div>
+    <hr>
+    Hibernation tokens: ${p.hibernationTokenCount} &nbsp;&nbsp;&nbsp; Explore tokens: ${p.exploreTokenCount}
+    <hr>
+    <div class="worker-row">${landedSlots}</div>
+  `;
+}
+
+/* old renderPlayerPanel
+
 function renderPlayerPanel(){
   const p=currentPlayerObj();
+  const workerSlots = Array(4).fill(null).map((_, i) => {
+    const strength = gameState[`active${i + 1}Strength`];
+    return `<span class="worker-slot">[Worker-${strength}]</span>`;
+  }).join(" ");
+
+  const workerSlots = Array(4).fill(null).map((_, i) => {
+    const activeVal = p['active' + (i + 1) + 'Strength'];
+    const landedVal = p['landed' + (i + 1) + 'Strength'];
+  
+    // If you want to show both active and landed, you could do: 
+    // [Worker-${activeVal}/${landedVal}]
+    // But based on your request, here is just the active one:
+    return `<span class="worker-slot">[Worker-${activeVal}]</span>`;
+  }).join(" ");
+  
+  
   document.getElementById("playerPanel").innerHTML=`
     <b>Player ${gameState.currentPlayer}</b><br><br>
     Pollen: ${p.pollen}&nbsp;&nbsp;Water: ${p.water}&nbsp;&nbsp;Fiber: ${p.fiber}<br><br>
     Wax: ${p.wax}&nbsp;&nbsp;Honey: ${p.honey}<br><hr>
-    Victory Points: ${p.victoryPoints}&nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor}<br>
-    Research Cards: ${p.researchCards}
+    Victory Points: ${p.victoryPoints}&nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor}<br><br>
+    Research Cards: ${p.researchCards}<hr>
+    DOCKING MAT<br><hr>
+    <div class="worker-row">${workerSlots}</div>
   `;
 }
-
+*/
+  
 function renderWelcome(){
   const div=document.createElement("div");
   div.id="welcome";
