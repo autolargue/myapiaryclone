@@ -536,17 +536,25 @@ function renderExplore(){
 
   root.appendChild(log);
 
-  if(gameState.turnReadyToEnd){
-    const btn=document.createElement("button");
-    btn.innerText="End Turn";
-    btn.onclick=()=>{
-      gameState.turnReadyToEnd=false;
-      endTurn();
-      render();
-    };
-    root.appendChild(btn);
-  }
+  if (gameState.turnReadyToEnd) {
+    // 1. Create a wrapper div
+    const wrapper = document.createElement("div");
+    wrapper.style.textAlign = "center"; // This centers elements inside the div
+    wrapper.style.marginTop = "20px";    // Optional: Adds some space above the button
 
+    // 2. Create the button
+    const btn = document.createElement("button");
+    btn.innerText = "End Turn";
+    btn.onclick = () => {
+        gameState.turnReadyToEnd = false;
+        endTurn();
+        render();
+    };
+
+    // 3. Append the button to the wrapper, then the wrapper to the root
+    wrapper.appendChild(btn);
+    root.appendChild(wrapper);
+  }
   return root;
 }
 
