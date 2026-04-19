@@ -120,10 +120,7 @@ const SIZE=4;
 const AREAS=["Welcome","Explore","Grow","Convert","Research","Carve","Hibernation"];
 
 /* ===== PLAYERS ===== */
-const players = [
-  createPlayer(),
-  createPlayer()
-];
+const players = [createPlayer(), createPlayer()];
 
 function createPlayer(){
   return {
@@ -141,7 +138,7 @@ function currentPlayerObj(){
   return players[gameState.currentPlayer-1];
 }
 
-/* ===== EXPLORE TOKENS ===== */
+/* ===== TOKENS ===== */
 const EXPLORE_TOKENS = [
  "1 pollen","2 pollen","1 water","2 water","1 fiber","2 fiber",
  "1 Victory Point","1 Queen Favor","2 Queen Favor","1 Wax",
@@ -154,8 +151,8 @@ function drawExploreToken(){
 }
 
 /* ===== PLANETS ===== */
-function empty(){return {resource:null,filled:false,predefined:false};}
-function basic(r){return {resource:r,filled:true,predefined:true};}
+function empty(){return {resource:null,filled:false};}
+function basic(r){return {resource:r,filled:true};}
 
 const PLANETS=[
  {name:"Aurelion",slots:[empty()],hasFourStrength:false},
@@ -169,10 +166,7 @@ function drawPlanet(){
 }
 
 function fullName(r){
-  if(r==="pollen") return "Pollen";
-  if(r==="fiber") return "Fiber";
-  if(r==="water") return "Water";
-  return "";
+  return r==="pollen"?"Pollen":r==="water"?"Water":"Fiber";
 }
 
 /* ===== STATE ===== */
@@ -196,25 +190,10 @@ const gameState={
 
   lastExploreReward:null,
   lastPlanetReward:null,
-  lastFourStrength:null
+  lastFourStrength:null,
+
+  turnReadyToEnd:false
 };
-
-/* ===== APPLY REWARDS ===== */
-function applyExploreReward(text){
-  const p=currentPlayerObj();
-
-  if(text.includes("pollen")) p.pollen += parseInt(text);
-  else if(text.includes("water")) p.water += parseInt(text);
-  else if(text.includes("fiber")) p.fiber += parseInt(text);
-  else if(text.includes("Victory Point")) p.victoryPoints += parseInt(text);
-  else if(text.includes("Queen Favor")) p.queenFavor += parseInt(text);
-  else if(text.includes("Wax")) p.wax += 1;
-  else if(text.includes("Research Card")) p.researchCards += parseInt(text);
-  else if(text.includes("basic")){
-    const r=["pollen","water","fiber"][Math.floor(Math.random()*3)];
-    p[r]+=1;
-  }
-}
 
 /* ===== HELPERS ===== */
 function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
@@ -223,12 +202,28 @@ function isAdjacent(a,b){
   return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
 }
 
+/* ===== REWARDS ===== */
+function applyExploreReward(text){
+  const p=currentPlayerObj();
+
+  if(text.includes("pollen")) p.pollen+=parseInt(text);
+  else if(text.includes("water")) p.water+=parseInt(text);
+  else if(text.includes("fiber")) p.fiber+=parseInt(text);
+  else if(text.includes("Victory Point")) p.victoryPoints+=parseInt(text);
+  else if(text.includes("Queen Favor")) p.queenFavor+=parseInt(text);
+  else if(text.includes("Wax")) p.wax+=1;
+  else if(text.includes("Research Card")) p.researchCards+=parseInt(text);
+  else if(text.includes("basic")){
+    const r=["pollen","water","fiber"][Math.floor(Math.random()*3)];
+    p[r]+=1;
+  }
+}
+
 /* ===== WORKERS ===== */
 function addWorker(s){
-  if(gameState.workerPlacedThisTurn) return;
+  if(gameState.workerPlacedThisTurn || gameState.turnReadyToEnd) return;
 
   const [l,r]=gameState.exploreWorkers;
-
   if(l===null) gameState.exploreWorkers=[s,null];
   else if(r===null) gameState.exploreWorkers=[s,l];
   else gameState.exploreWorkers=[s,l];
@@ -260,7 +255,7 @@ function remaining(){
 }
 
 function validMoves(){
-  if(!gameState.movement.active || remaining()<=0) return [];
+  if(!gameState.movement.active || remaining()<=0 || gameState.turnReadyToEnd) return [];
 
   const path=gameState.movement.path;
   const last=path[path.length-1];
@@ -272,6 +267,8 @@ function validMoves(){
 }
 
 function startMovement(){
+  if(gameState.turnReadyToEnd) return;
+
   const t=getTotal();
   if(t===0) return;
 
@@ -289,7 +286,9 @@ function resetMovement(){
 }
 
 function clickCell(i){
+  if(gameState.turnReadyToEnd) return;
   if(!validMoves().includes(i)) return;
+
   gameState.movement.path.push(i);
   render();
 }
@@ -316,7 +315,6 @@ function endMovement(){
   animate(path,()=>{
     const final=path[path.length-1];
     resolveExplore(final);
-
     gameState.movement.path=[];
     render();
   });
@@ -332,14 +330,13 @@ function resolveExplore(i){
 
   if(cell.hasToken){
     const reward=drawExploreToken();
-    gameState.lastExploreReward = reward;
+    gameState.lastExploreReward=reward;
     applyExploreReward(reward);
     cell.hasToken=false;
   }
 
   if(!cell.planet){
     cell.planet=drawPlanet();
-
     const empty=cell.planet.slots.find(x=>!x.filled);
     if(empty){
       const t=["pollen","fiber","water"][Math.floor(Math.random()*3)];
@@ -348,31 +345,32 @@ function resolveExplore(i){
     }
   }
 
-  const resources = cell.planet.slots
-    .filter(s=>s.filled)
-    .map(s=>s.resource);
-
+  const resources = cell.planet.slots.filter(s=>s.filled).map(s=>s.resource);
   if(resources.length){
     resources.forEach(r=>currentPlayerObj()[r]++);
     gameState.lastPlanetReward = resources.map(fullName).join(" + ");
   }
 
-  const usedWorker = gameState.exploreWorkers[0];
-  if(cell.planet.hasFourStrength && usedWorker===4){
-    gameState.lastFourStrength = "4-strength power";
+  if(cell.planet.hasFourStrength && gameState.exploreWorkers[0]===4){
+    gameState.lastFourStrength="4-strength power";
   }
 
   cell.revealed=true;
   cell.visited=true;
 
-  endTurn();
+  gameState.turnReadyToEnd=true;
 }
 
+/* ===== TURN ===== */
 function endTurn(){
-  gameState.currentPlayer++;
-  if(gameState.currentPlayer>2) gameState.currentPlayer=1;
+  gameState.currentPlayer = gameState.currentPlayer===1?2:1;
+
   gameState.workerPlacedThisTurn=false;
   gameState.workerConfirmed=false;
+
+  gameState.lastExploreReward=null;
+  gameState.lastPlanetReward=null;
+  gameState.lastFourStrength=null;
 }
 
 /* ===== RENDER ===== */
@@ -405,9 +403,9 @@ function renderPlayerPanel(){
 function renderWelcome(){
   const div=document.createElement("div");
   div.id="welcome";
-  div.innerText = `Welcome to my Apiary clone. 
+  div.innerText=`Welcome to my Apiary clone.
 
-Explore: Add an available worker from your docking mat. Confirm the worker selection and Start movement. End the movement to collect resources from an explore token if available and from the planet. If a slot is available on the planet, select one of the basic resources to add and gain that resource.`;
+Explore: Add a worker, confirm, move, end movement, then click End Turn.`;
   return div;
 }
 
@@ -454,7 +452,6 @@ function renderExplore(){
 
     const resetBtn=document.createElement("button");
     resetBtn.innerText="Reset selection";
-    resetBtn.disabled=!gameState.workerPlacedThisTurn;
     resetBtn.onclick=resetWorkerSelection;
 
     confirmRow.appendChild(confirmBtn);
@@ -485,17 +482,6 @@ function renderExplore(){
   }
 
   root.appendChild(ctrl);
-
-  if(gameState.movement.active){
-    const m=document.createElement("div");
-    m.style.textAlign="center";
-    m.innerText="Moves remaining: "+remaining();
-    root.appendChild(m);
-
-    const d=document.createElement("div");
-    d.className="divider";
-    root.appendChild(d);
-  }
 
   const grid=document.createElement("div");
   grid.id="grid";
@@ -546,9 +532,20 @@ function renderExplore(){
     log.innerHTML += "Planet reward: "+gameState.lastPlanetReward+"<br>";
 
   if(gameState.lastFourStrength)
-    log.innerHTML += "4-strength power";
+    log.innerHTML += "4-strength power<br>";
 
   root.appendChild(log);
+
+  if(gameState.turnReadyToEnd){
+    const btn=document.createElement("button");
+    btn.innerText="End Turn";
+    btn.onclick=()=>{
+      gameState.turnReadyToEnd=false;
+      endTurn();
+      render();
+    };
+    root.appendChild(btn);
+  }
 
   return root;
 }
