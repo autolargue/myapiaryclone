@@ -141,7 +141,7 @@ function createPlayer(){
     landed3Strength:0,
     landed4Strength:0,
     exploreTokenCount:0,
-    hibernationTokenCount:0,
+    hibernationTokenCount:7,
     danceToken:1,
     startingTileUpgraded:0
   };
@@ -425,7 +425,8 @@ function renderPlayerPanel() {
   // Helper function to create the 4-slot row for any strength prefix
   const getSlots = (prefix) => Array(4).fill(null).map((_, i) => {
     const val = p[prefix + (i + 1) + 'Strength'];
-    return `<span class="worker-slot">[Worker-${val}]</span>`;
+    const display = (val === 0) ? "None" : val;
+    return `<span class="worker-slot">[Worker-${display}]</span>`;
   }).join(" ");
 
   const activeSlots = getSlots('active');
@@ -438,10 +439,12 @@ function renderPlayerPanel() {
     Victory Points: ${p.victoryPoints} &nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor} <br><br>
     Research Cards: ${p.researchCards} <hr>
     DOCKING MAT<br><hr>
+    ACTIVE POOL<br>
     <div class="worker-row">${activeSlots}</div>
     <hr>
-    Hibernation tokens: ${p.hibernationTokenCount} &nbsp;&nbsp;&nbsp; Explore tokens: ${p.exploreTokenCount}
+    Hibernation tokens: ${p.hibernationTokenCount}<br>Explore tokens: ${p.exploreTokenCount}
     <hr>
+    LANDING AREA<br>
     <div class="worker-row">${landedSlots}</div>
   `;
 }
