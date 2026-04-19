@@ -29,12 +29,17 @@ body{
   flex-direction:column;
 }
 
+/* TOP AREA (THIS WAS MISSING) */
+#topBar{
+  background:#111827;
+  padding:10px;
+}
+
 /* TABS */
 #tabs{
   display:flex;
   gap:6px;
-  padding:10px;
-  background:#111827;
+  margin-bottom:8px;
 }
 
 .tab{
@@ -54,6 +59,7 @@ body{
   padding-top:10px;
 }
 
+/* GRID */
 #grid{
   display:grid;
   grid-template-columns:repeat(4,90px);
@@ -71,21 +77,21 @@ body{
   justify-content:center;
 }
 
+/* BOTTOM FEEDBACK */
+#log{
+  padding:8px;
+  text-align:center;
+  font-size:12px;
+  background:#0f172a;
+  border-top:1px solid #333;
+}
+
 /* RIGHT PANEL */
 #rightPanel{
   width:260px;
   background:#111827;
   padding:12px;
   border-left:1px solid #333;
-}
-
-/* PLAYER */
-.playerBox{
-  font-size:12px;
-  line-height:1.5;
-  background:#0f172a;
-  padding:10px;
-  border-radius:6px;
 }
 </style>
 </head>
@@ -94,18 +100,21 @@ body{
 
 <div id="leftPanel">
 <b>Explore System</b><br><br>
-
-✔ Move ship across grid<br>
-✔ Discover planets<br>
-✔ Fill resource slots<br><br>
-
-Workers generate movement strength.<br>
-Empty slots require resource choice.
+Move ship → discover planets → gain resources<br><br>
+Empty slots require player choice.
 </div>
 
 <div id="main">
-  <div id="tabs"></div>
+
+  <!-- ⭐ TOP BAR RESTORED -->
+  <div id="topBar">
+    <div id="tabs"></div>
+    <div id="info"></div>
+  </div>
+
   <div id="content"></div>
+  <div id="log"></div>
+
 </div>
 
 <div id="rightPanel">
@@ -156,14 +165,16 @@ function renderTabs(){
 
 function resolveExplore(i){
  const cell=gameState.grid[i];
+
  if(!cell.planet){
-  cell.planet={
-   name:"Planet "+i,
-   slots:[]
-  };
+  cell.planet={name:"Planet "+i,slots:[]};
  }
 
  cell.revealed=true;
+
+ document.getElementById("log").innerText =
+  "Explored sector "+i;
+
  render();
 }
 
@@ -186,7 +197,7 @@ function renderGrid(){
  return grid;
 }
 
-/* ================= PLAYER PANEL ================= */
+/* ================= PLAYER ================= */
 
 function renderPlayer(){
  const p=currentPlayer();
@@ -194,16 +205,14 @@ function renderPlayer(){
  document.getElementById("playerState").innerHTML=`
  Player ${p.id}<br><br>
 
- Resources:<br>
- P:${p.resources.pollen}<br>
- F:${p.resources.fiber}<br>
- W:${p.resources.water}<br><br>
+ Pollen: ${p.resources.pollen}<br>
+ Fiber: ${p.resources.fiber}<br>
+ Water: ${p.resources.water}<br><br>
 
- Hibernation Tokens: ${p.hibernationTokens}<br><br>
+ Hibernation: ${p.hibernationTokens}<br><br>
 
- Active Pool: ${JSON.stringify(p.activePool)}<br><br>
-
- Landing Area: ${JSON.stringify(p.landingArea)}
+ Active: ${JSON.stringify(p.activePool)}<br><br>
+ Landing: ${JSON.stringify(p.landingArea)}
  `;
 }
 
@@ -212,9 +221,8 @@ function renderPlayer(){
 function render(){
  renderTabs();
 
- const c=document.getElementById("content");
- c.innerHTML="";
- c.appendChild(renderGrid());
+ document.getElementById("content").innerHTML="";
+ document.getElementById("content").appendChild(renderGrid());
 
  renderPlayer();
 }
