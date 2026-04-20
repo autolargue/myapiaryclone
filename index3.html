@@ -124,26 +124,10 @@ const players = [createPlayer(), createPlayer()];
 
 function createPlayer(){
   return {
-    pollen:0,
-    water:0,
-    fiber:0,
-    victoryPoints:0,
-    queenFavor:0,
-    wax:0,
-    honey: 0,
-    researchCards:0,
-    active1Strength:0,
-    active2Strength:0,
-    active3Strength:0,
-    active4Strength:0,
-    landed1Strength:0,
-    landed2Strength:0,
-    landed3Strength:0,
-    landed4Strength:0,
-    exploreTokenCount:0,
-    hibernationTokenCount:7,
-    danceToken:1,
-    startingTileUpgraded:0
+    pollen:0, water:0, fiber:0,
+    victoryPoints:0, queenFavor:0,
+    wax:0, honey:0,
+    researchCards:0
   };
 }
 
@@ -196,25 +180,14 @@ function fullName(r){
 /* ===== STATE ===== */
 const gameState={
   currentPlayer:1,
-  activeArea:"Welcome",
+  activeArea:"Explore",
   queenPosition:15,
 
-  /* old grid 
-  grid:Array(16).fill(null).map(()=>({
-    planet:null,
-    revealed:false,
-    visited:false,
-    hasToken:true
+  grid:Array(16).fill(null).map((_,i)=>({
+    planet:null, revealed:false, visited:false,
+    hasToken: i===15 ? false : true
   })),
-*/
 
-  grid: Array(16).fill(null).map((_, index) => ({
-    planet: null,
-    revealed: false,
-    visited: false,
-    hasToken: (index === 15) ? false : true // Sets index 15 to false, others to true
-  })),
-  
   exploreWorkers:[null,null],
   workerPlacedThisTurn:false,
   workerConfirmed:false,
@@ -225,7 +198,8 @@ const gameState={
   lastPlanetReward:null,
   lastFourStrength:null,
 
-  turnReadyToEnd:false
+  turnReadyToEnd:false,
+  pendingChoice:null
 };
 
 /* ===== HELPERS ===== */
@@ -235,26 +209,9 @@ function isAdjacent(a,b){
   return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)===1;
 }
 
-/* ===== REWARDS ===== */
-function applyExploreReward(text){
-  const p=currentPlayerObj();
-
-  if(text.includes("pollen")) p.pollen+=parseInt(text);
-  else if(text.includes("water")) p.water+=parseInt(text);
-  else if(text.includes("fiber")) p.fiber+=parseInt(text);
-  else if(text.includes("Victory Point")) p.victoryPoints+=parseInt(text);
-  else if(text.includes("Queen Favor")) p.queenFavor+=parseInt(text);
-  else if(text.includes("Wax")) p.wax+=1;
-  else if(text.includes("Research Card")) p.researchCards+=parseInt(text);
-  else if(text.includes("basic")){
-    const r=["pollen","water","fiber"][Math.floor(Math.random()*3)];
-    p[r]+=1;
-  }
-}
-
 /* ===== WORKERS ===== */
 function addWorker(s){
-  if(gameState.workerPlacedThisTurn || gameState.turnReadyToEnd) return;
+  if(gameState.workerPlacedThisTurn || gameState.pendingChoice) return;
 
   const [l,r]=gameState.exploreWorkers;
   if(l===null) gameState.exploreWorkers=[s,null];
@@ -283,16 +240,10 @@ function getTotal(){
 }
 
 /* ===== MOVEMENT ===== */
-function remaining(){
-  return gameState.movement.maxSteps-(gameState.movement.path.length-1);
-}
-
 function validMoves(){
-  if(!gameState.movement.active || remaining()<=0 || gameState.turnReadyToEnd) return [];
-
+  if(!gameState.movement.active || gameState.pendingChoice) return [];
   const path=gameState.movement.path;
   const last=path[path.length-1];
-
   return [last+1,last-1,last+4,last-4]
     .filter(i=>i>=0 && i<16)
     .filter(i=>isAdjacent(last,i))
@@ -300,26 +251,18 @@ function validMoves(){
 }
 
 function startMovement(){
-  if(gameState.turnReadyToEnd) return;
-
-  const t=getTotal();
-  if(t===0) return;
+  if(gameState.pendingChoice) return;
 
   gameState.movement={
     active:true,
     path:[gameState.queenPosition],
-    maxSteps:t
+    maxSteps:getTotal()
   };
   render();
 }
 
-function resetMovement(){
-  gameState.movement.path=[gameState.queenPosition];
-  render();
-}
-
 function clickCell(i){
-  if(gameState.turnReadyToEnd) return;
+  if(gameState.pendingChoice) return;
   if(!validMoves().includes(i)) return;
 
   gameState.movement.path.push(i);
@@ -330,26 +273,24 @@ function animate(path,done){
   let step=1;
   function next(){
     if(step>=path.length){done();return;}
-    gameState.queenPosition=path[step];
-    render();
-    step++;
-    setTimeout(next,200);
+    gameState.queenPosition=path[step++];
+    setTimeout(next,150);
   }
   next();
 }
 
 function endMovement(){
   const path=[...gameState.movement.path];
-  const start=path[0];
 
-  gameState.grid[start].visited=true;
   gameState.movement.active=false;
-  gameState.movement.ended=true;
 
   animate(path,()=>{
     const final=path[path.length-1];
+
     resolveExplore(final);
+
     gameState.movement.path=[];
+
     render();
   });
 }
@@ -371,28 +312,49 @@ function resolveExplore(i){
 
   if(!cell.planet){
     cell.planet=drawPlanet();
-    const empty=cell.planet.slots.find(x=>!x.filled);
-    if(empty){
-      const t=["pollen","fiber","water"][Math.floor(Math.random()*3)];
-      empty.resource=t;
-      empty.filled=true;
-    }
   }
 
-  const resources = cell.planet.slots.filter(s=>s.filled).map(s=>s.resource);
-  if(resources.length){
-    resources.forEach(r=>currentPlayerObj()[r]++);
-    gameState.lastPlanetReward = resources.map(fullName).join(" + ");
-  }
+  const emptySlot = cell.planet.slots.find(s=>!s.filled);
 
-  if(cell.planet.hasFourStrength && gameState.exploreWorkers[0]===4){
-    gameState.lastFourStrength="4-strength power";
+  if(emptySlot){
+    gameState.pendingChoice = {cell, slot: emptySlot};
+  } else {
+    applyPlanetRewards(cell);
   }
 
   cell.revealed=true;
   cell.visited=true;
+}
+
+function applyExploreReward(text){
+  const p=currentPlayerObj();
+  if(text.includes("pollen")) p.pollen+=parseInt(text);
+  else if(text.includes("water")) p.water+=parseInt(text);
+  else if(text.includes("fiber")) p.fiber+=parseInt(text);
+}
+
+function applyPlanetRewards(cell){
+  const res=cell.planet.slots.filter(s=>s.filled).map(s=>s.resource);
+
+  res.forEach(r=>currentPlayerObj()[r]++);
+  gameState.lastPlanetReward = res.map(fullName).join(" + ");
 
   gameState.turnReadyToEnd=true;
+}
+
+function chooseResource(r){
+  const {cell,slot}=gameState.pendingChoice;
+
+  slot.resource=r;
+  slot.filled=true;
+
+  currentPlayerObj()[r]++;
+
+  gameState.pendingChoice=null;
+
+  applyPlanetRewards(cell);
+
+  render();
 }
 
 /* ===== TURN ===== */
@@ -404,7 +366,7 @@ function endTurn(){
 
   gameState.lastExploreReward=null;
   gameState.lastPlanetReward=null;
-  gameState.lastFourStrength=null;
+  gameState.turnReadyToEnd=false;
 }
 
 /* ===== RENDER ===== */
@@ -418,77 +380,6 @@ function renderTabs(){
     el.onclick=()=>{gameState.activeArea=a;render();};
     t.appendChild(el);
   });
-}
-
-function renderPlayerPanel() {
-  const p = currentPlayerObj();
-
-  // Helper function to create the 4-slot row for any strength prefix
-  const getSlots = (prefix) => Array(4).fill(null).map((_, i) => {
-    const val = p[prefix + (i + 1) + 'Strength'];
-    const display = (val === 0) ? "None" : val;
-    return `<span class="worker-slot">[Worker-${display}]</span>`;
-  }).join(" ");
-
-  const activeSlots = getSlots('active');
-  const landedSlots = getSlots('landed');
-
-  document.getElementById("playerPanel").innerHTML = `
-    <b>Player ${gameState.currentPlayer} </b><br><br>
-    Pollen: ${p.pollen} &nbsp;&nbsp;Water: ${p.water} &nbsp;&nbsp;Fiber: ${p.fiber} <br><br>
-    Wax: ${p.wax} &nbsp;&nbsp;Honey: ${p.honey} <br><hr>
-    Victory Points: ${p.victoryPoints} &nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor} <br><br>
-    Research Cards: ${p.researchCards} <hr>
-    DOCKING MAT<br><hr>
-    ACTIVE POOL<br>
-    <div class="worker-row">${activeSlots}</div>
-    <hr>
-    Hibernation tokens: ${p.hibernationTokenCount}<br>Explore tokens: ${p.exploreTokenCount}
-    <hr>
-    LANDING AREA<br>
-    <div class="worker-row">${landedSlots}</div>
-  `;
-}
-
-/* old renderPlayerPanel
-
-function renderPlayerPanel(){
-  const p=currentPlayerObj();
-  const workerSlots = Array(4).fill(null).map((_, i) => {
-    const strength = gameState[`active${i + 1}Strength`];
-    return `<span class="worker-slot">[Worker-${strength}]</span>`;
-  }).join(" ");
-
-  const workerSlots = Array(4).fill(null).map((_, i) => {
-    const activeVal = p['active' + (i + 1) + 'Strength'];
-    const landedVal = p['landed' + (i + 1) + 'Strength'];
-  
-    // If you want to show both active and landed, you could do: 
-    // [Worker-${activeVal}/${landedVal}]
-    // But based on your request, here is just the active one:
-    return `<span class="worker-slot">[Worker-${activeVal}]</span>`;
-  }).join(" ");
-  
-  
-  document.getElementById("playerPanel").innerHTML=`
-    <b>Player ${gameState.currentPlayer}</b><br><br>
-    Pollen: ${p.pollen}&nbsp;&nbsp;Water: ${p.water}&nbsp;&nbsp;Fiber: ${p.fiber}<br><br>
-    Wax: ${p.wax}&nbsp;&nbsp;Honey: ${p.honey}<br><hr>
-    Victory Points: ${p.victoryPoints}&nbsp;&nbsp;&nbsp;Queen Favor: ${p.queenFavor}<br><br>
-    Research Cards: ${p.researchCards}<hr>
-    DOCKING MAT<br><hr>
-    <div class="worker-row">${workerSlots}</div>
-  `;
-}
-*/
-  
-function renderWelcome(){
-  const div=document.createElement("div");
-  div.id="welcome";
-  div.innerText=`Welcome to my Apiary clone.
-
-Explore: Add a worker, confirm, move, end movement, then click End Turn.`;
-  return div;
 }
 
 function renderExplore(){
@@ -507,7 +398,6 @@ function renderExplore(){
   const t=document.createElement("div");
   t.innerText="Total strength = "+getTotal();
   row.appendChild(t);
-
   root.appendChild(row);
 
   if(!gameState.workerConfirmed){
@@ -517,7 +407,6 @@ function renderExplore(){
     [1,2,3,4].forEach(s=>{
       const b=document.createElement("button");
       b.innerText="Add worker of strength "+s;
-      b.disabled=gameState.workerPlacedThisTurn;
       b.onclick=()=>addWorker(s);
       btns.appendChild(b);
     });
@@ -529,7 +418,6 @@ function renderExplore(){
 
     const confirmBtn=document.createElement("button");
     confirmBtn.innerText="Confirm worker";
-    confirmBtn.disabled=!gameState.workerPlacedThisTurn;
     confirmBtn.onclick=confirmWorker;
 
     const resetBtn=document.createElement("button");
@@ -538,7 +426,6 @@ function renderExplore(){
 
     confirmRow.appendChild(confirmBtn);
     confirmRow.appendChild(resetBtn);
-
     root.appendChild(confirmRow);
   }
 
@@ -554,13 +441,7 @@ function renderExplore(){
     const end=document.createElement("button");
     end.innerText="End movement";
     end.onclick=endMovement;
-
-    const reset=document.createElement("button");
-    reset.innerText="Reset";
-    reset.onclick=resetMovement;
-
     ctrl.appendChild(end);
-    ctrl.appendChild(reset);
   }
 
   root.appendChild(ctrl);
@@ -586,7 +467,6 @@ function renderExplore(){
         <div class="planet-art"></div>
         <div class="name">${cell.planet.name}</div>
         <div class="sep"></div>
-        <div class="bonus">${cell.planet.hasFourStrength?"⚡":""}</div>
       `;
     } else if(cell.hasToken){
       d.innerText="⭐";
@@ -604,56 +484,53 @@ function renderExplore(){
 
   root.appendChild(grid);
 
+  if(gameState.pendingChoice){
+    const choice=document.createElement("div");
+    choice.style.textAlign="center";
+    choice.innerText="Choose resource: ";
+
+    ["pollen","water","fiber"].forEach(r=>{
+      const b=document.createElement("button");
+      b.innerText=fullName(r);
+      b.onclick=()=>chooseResource(r);
+      choice.appendChild(b);
+    });
+
+    root.appendChild(choice);
+  }
+
   const log=document.createElement("div");
   log.id="rewardLog";
 
   if(gameState.lastExploreReward)
-    log.innerHTML += "Explore reward: "+gameState.lastExploreReward+"<br>";
+    log.innerHTML+="Explore reward: "+gameState.lastExploreReward+"<br>";
 
   if(gameState.lastPlanetReward)
-    log.innerHTML += "Planet reward: "+gameState.lastPlanetReward+"<br>";
-
-  if(gameState.lastFourStrength)
-    log.innerHTML += "4-strength power<br>";
+    log.innerHTML+="Planet reward: "+gameState.lastPlanetReward+"<br>";
 
   root.appendChild(log);
 
-  if (gameState.turnReadyToEnd) {
-    // 1. Create a wrapper div
-    const wrapper = document.createElement("div");
-    wrapper.style.textAlign = "center"; // This centers elements inside the div
-    wrapper.style.marginTop = "20px";    // Optional: Adds some space above the button
+  if(gameState.turnReadyToEnd){
+    const wrap=document.createElement("div");
+    wrap.style.textAlign="center";
 
-    // 2. Create the button
-    const btn = document.createElement("button");
-    btn.innerText = "End Turn";
-    btn.onclick = () => {
-        gameState.turnReadyToEnd = false;
-        endTurn();
-        render();
-    };
+    const btn=document.createElement("button");
+    btn.innerText="End Turn";
+    btn.onclick=()=>{ endTurn(); render(); };
 
-    // 3. Append the button to the wrapper, then the wrapper to the root
-    wrapper.appendChild(btn);
-    root.appendChild(wrapper);
+    wrap.appendChild(btn);
+    root.appendChild(wrap);
   }
+
   return root;
 }
 
 function render(){
   renderTabs();
-  renderPlayerPanel();
 
   const content=document.getElementById("content");
   content.innerHTML="";
-
-  if(gameState.activeArea==="Welcome"){
-    content.appendChild(renderWelcome());
-  }
-
-  if(gameState.activeArea==="Explore"){
-    content.appendChild(renderExplore());
-  }
+  content.appendChild(renderExplore());
 
   document.getElementById("info").innerText="Player "+gameState.currentPlayer;
 }
