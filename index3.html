@@ -6,7 +6,6 @@
 
 <style>
 body { margin:0; background:#0b1020; font-family:Arial; color:white; display:flex; }
-
 #main { flex:1; }
 
 #tabs { display:flex; gap:5px; padding:10px; background:#111827; }
@@ -14,6 +13,13 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; display:fle
 .tab.active { background:#2563eb; }
 
 #info { text-align:center; padding:8px; }
+
+#welcome {
+  max-width:600px;
+  margin:40px auto;
+  text-align:center;
+  line-height:1.6;
+}
 
 .worker-row {
   display:flex;
@@ -66,7 +72,6 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; display:fle
 
 .name { font-size:9px; }
 .sep { width:80%; height:1px; background:white; opacity:0.3; }
-.bonus { font-size:8px; }
 
 .ship {
   position:absolute;
@@ -75,31 +80,9 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; display:fle
   font-size:16px;
 }
 
-.divider {
-  width:370px;
-  height:1px;
-  background:white;
-  margin:5px auto;
-}
-
-#welcome {
-  max-width:600px;
-  margin:40px auto;
-  text-align:center;
-  line-height:1.5;
-}
-
 #rewardLog{
   text-align:center;
   margin-top:10px;
-  font-size:12px;
-}
-
-#playerPanel {
-  width:220px;
-  background:#111827;
-  padding:10px;
-  border-left:2px solid #1f2937;
   font-size:12px;
 }
 </style>
@@ -108,29 +91,20 @@ body { margin:0; background:#0b1020; font-family:Arial; color:white; display:fle
 <body>
 
 <div id="main">
-<div id="tabs"></div>
-<div id="info"></div>
-<div id="content"></div>
+  <div id="tabs"></div>
+  <div id="info"></div>
+  <div id="content"></div>
 </div>
-
-<div id="playerPanel"></div>
 
 <script>
 const SIZE=4;
 const AREAS=["Welcome","Explore","Grow","Convert","Research","Carve","Hibernation"];
 
 /* ===== PLAYERS ===== */
-const players = [createPlayer(), createPlayer()];
-
+const players=[createPlayer(),createPlayer()];
 function createPlayer(){
-  return {
-    pollen:0, water:0, fiber:0,
-    victoryPoints:0, queenFavor:0,
-    wax:0, honey:0,
-    researchCards:0
-  };
+  return {pollen:0,water:0,fiber:0,victoryPoints:0,queenFavor:0,wax:0,honey:0,researchCards:0};
 }
-
 function currentPlayerObj(){
   return players[gameState.currentPlayer-1];
 }
@@ -143,8 +117,12 @@ const EXPLORE_TOKENS = [
  "1 Victory Point","1 Queen Favor"
 ];
 
-function drawExploreToken(){
-  return EXPLORE_TOKENS[Math.floor(Math.random()*EXPLORE_TOKENS.length)];
+function shuffle(array){
+  for(let i=array.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [array[i],array[j]]=[array[j],array[i]];
+  }
+  return array;
 }
 
 /* ===== PLANETS ===== */
@@ -180,12 +158,16 @@ function fullName(r){
 /* ===== STATE ===== */
 const gameState={
   currentPlayer:1,
-  activeArea:"Explore",
+  activeArea:"Welcome",
   queenPosition:15,
 
+  exploreTokenPool: shuffle([...EXPLORE_TOKENS]),
+
   grid:Array(16).fill(null).map((_,i)=>({
-    planet:null, revealed:false, visited:false,
-    hasToken: i===15 ? false : true
+    planet:null,
+    revealed:false,
+    visited:false,
+    hasToken: i!==15
   })),
 
   exploreWorkers:[null,null],
@@ -196,11 +178,16 @@ const gameState={
 
   lastExploreReward:null,
   lastPlanetReward:null,
-  lastFourStrength:null,
 
   turnReadyToEnd:false,
   pendingChoice:null
 };
+
+/* ===== TOKEN DRAW ===== */
+function drawExploreToken(){
+  if(gameState.exploreTokenPool.length===0) return null;
+  return gameState.exploreTokenPool.pop();
+}
 
 /* ===== HELPERS ===== */
 function getCoords(i){return {x:i%SIZE,y:Math.floor(i/SIZE)};}
@@ -281,16 +268,12 @@ function animate(path,done){
 
 function endMovement(){
   const path=[...gameState.movement.path];
-
   gameState.movement.active=false;
 
   animate(path,()=>{
     const final=path[path.length-1];
-
     resolveExplore(final);
-
     gameState.movement.path=[];
-
     render();
   });
 }
@@ -301,7 +284,6 @@ function resolveExplore(i){
 
   gameState.lastExploreReward=null;
   gameState.lastPlanetReward=null;
-  gameState.lastFourStrength=null;
 
   if(cell.hasToken){
     const reward=drawExploreToken();
@@ -327,6 +309,7 @@ function resolveExplore(i){
 }
 
 function applyExploreReward(text){
+  if(!text) return;
   const p=currentPlayerObj();
   if(text.includes("pollen")) p.pollen+=parseInt(text);
   else if(text.includes("water")) p.water+=parseInt(text);
@@ -335,10 +318,8 @@ function applyExploreReward(text){
 
 function applyPlanetRewards(cell){
   const res=cell.planet.slots.filter(s=>s.filled).map(s=>s.resource);
-
   res.forEach(r=>currentPlayerObj()[r]++);
   gameState.lastPlanetReward = res.map(fullName).join(" + ");
-
   gameState.turnReadyToEnd=true;
 }
 
@@ -382,9 +363,25 @@ function renderTabs(){
   });
 }
 
+function renderWelcome(){
+  const d=document.createElement("div");
+  d.id="welcome";
+  d.innerHTML=`
+  <p>
+  Welcome to my Apiary clone.<br><br>
+  Explore: Add an available worker from your docking mat.
+  Confirm the worker selection and Start movement.
+  End the movement to collect resources from an explore token if available and from the planet.
+  If a slot is available on the planet, select one of the basic resources to add and gain that resource.
+  </p>
+  `;
+  return d;
+}
+
 function renderExplore(){
   const root=document.createElement("div");
 
+  /* worker slots */
   const row=document.createElement("div");
   row.className="worker-row";
 
@@ -400,6 +397,7 @@ function renderExplore(){
   row.appendChild(t);
   root.appendChild(row);
 
+  /* worker selection */
   if(!gameState.workerConfirmed){
     const btns=document.createElement("div");
     btns.className="worker-row";
@@ -429,6 +427,7 @@ function renderExplore(){
     root.appendChild(confirmRow);
   }
 
+  /* movement buttons */
   const ctrl=document.createElement("div");
   ctrl.className="worker-row";
 
@@ -446,6 +445,7 @@ function renderExplore(){
 
   root.appendChild(ctrl);
 
+  /* grid */
   const grid=document.createElement("div");
   grid.id="grid";
 
@@ -484,6 +484,7 @@ function renderExplore(){
 
   root.appendChild(grid);
 
+  /* resource choice */
   if(gameState.pendingChoice){
     const choice=document.createElement("div");
     choice.style.textAlign="center";
@@ -499,6 +500,7 @@ function renderExplore(){
     root.appendChild(choice);
   }
 
+  /* reward log */
   const log=document.createElement("div");
   log.id="rewardLog";
 
@@ -510,6 +512,7 @@ function renderExplore(){
 
   root.appendChild(log);
 
+  /* end turn */
   if(gameState.turnReadyToEnd){
     const wrap=document.createElement("div");
     wrap.style.textAlign="center";
@@ -530,7 +533,20 @@ function render(){
 
   const content=document.getElementById("content");
   content.innerHTML="";
-  content.appendChild(renderExplore());
+
+  if(gameState.activeArea==="Welcome"){
+    content.appendChild(renderWelcome());
+  }
+  else if(gameState.activeArea==="Explore"){
+    content.appendChild(renderExplore());
+  }
+  else{
+    const placeholder=document.createElement("div");
+    placeholder.style.textAlign="center";
+    placeholder.style.marginTop="40px";
+    placeholder.innerText=gameState.activeArea+" (not implemented yet)";
+    content.appendChild(placeholder);
+  }
 
   document.getElementById("info").innerText="Player "+gameState.currentPlayer;
 }
